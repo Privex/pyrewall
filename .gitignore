@@ -1,3 +1,6 @@
 venv/
 logs/
 .env
+build/
+dist/
+*.egg-info/

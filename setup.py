@@ -57,6 +57,7 @@ setup(
         'privex-helpers>=1.0.0', 'python-dotenv'
     ],
     packages=find_packages(),
+    scripts=['bin/pyre'],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
