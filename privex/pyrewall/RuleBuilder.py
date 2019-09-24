@@ -86,7 +86,6 @@ class RuleBuilder:
         return rule
 
     def build(self, ipver='v4'):
-
         rules = [self._build(ipver=ipver)]
         extra_rule_args = []
 
@@ -95,14 +94,6 @@ class RuleBuilder:
                 extra_rule_args[pos] = {**extra_rule_args[pos], **data}
                 return
             extra_rule_args.append(data)
-
-        if not empty(self.extra_protocols, itr=True):
-            for i, p in enumerate(self.extra_protocols):
-                add_arg(i, protocol=p)
-
-        if not empty(self.extra_types, itr=True):
-            for i, p in enumerate(self.extra_types):
-                add_arg(i, rule_type=p)
 
         if len(self.from_cidr[ipver]) > 1:
             for i, p in enumerate(self.from_cidr[ipver][1:]):
@@ -120,11 +111,27 @@ class RuleBuilder:
             for i, p in enumerate(self.to_iface[1:]):
                 add_arg(i, to_iface=p)
 
+        # To avoid the issue of the list growing as we loop it, we clone the current extra rules
+        orig_extra_args = list(extra_rule_args)
+        for p in self.extra_protocols:
+            # For each extra protocol, we duplicate the base rule with the different protocol
+            extra_rule_args.append({'protocol': p})
+            # Then we do the same for each existing extra rule argument
+            for r in orig_extra_args:
+                extra_rule_args.append({**r, 'protocol': p})
+
+        # We clone the list again so the for loop is aware of any extra protocols
+        orig_extra_args = list(extra_rule_args)
+        for p in self.extra_types:
+            # Just like with the extra protocols, we duplicate the base rule with the extra type/chain
+            # as well as repeating this for each extra rule
+            extra_rule_args.append({'rule_type': p})
+            for i, r in enumerate(orig_extra_args):
+                extra_rule_args.append({**r, 'rule_type': p})
+
+        # Finally, we loop over all the extra rules and generate their IPTables line with _build()
         for a in extra_rule_args:
             rules.append(self._build(**a, ipver=ipver))
-
-        # if not empty(self.extra_protocols, itr=True):
-        # rules.append(self._build(protocol=p))
 
         return rules
 
