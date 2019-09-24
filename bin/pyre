@@ -2,7 +2,7 @@
 import sys
 import textwrap
 import argparse
-from privex.helpers import ErrHelpParser
+from privex.helpers import ErrHelpParser, empty
 from privex.pyrewall import conf, VERSION
 from privex.pyrewall.conf import FILE_SUFFIX, CONF_DIRS, SEARCH_DIRS
 from privex.pyrewall.core import find_file
@@ -43,28 +43,46 @@ parser = ErrHelpParser(
 )
 
 
-def ap_parse(opt):
-    f = opt.file
-    try:
-        path = find_file(f, SEARCH_DIRS, extensions=conf.SEARCH_EXTENSIONS)
-    except FileNotFoundError:
-        print(f'ERROR: The file "{f}" could not be found in any of your search directories.', file=sys.stderr)
-        return sys.exit(1)
-    # ext = path.split('.')[-1]
-    print(f'Parsing file: {path}', file=sys.stderr)
+def parse_stdin(ipver='both'):
+    lines = []
+    for l in sys.stdin:
+        lines.append(l.strip())
     p = PyreParser()
-    ip4, ip6 = p.parse_file(path=path)
-    if opt.ipver.lower() in ['4', 'v4', 'ipv4', 'both']:
+    ip4, ip6 = p.parse_lines(lines=lines)
+    print_rules(ip4=ip4, ip6=ip6, ipver=ipver)
+
+
+def print_rules(ip4: list = None, ip6: list = None, ipver='both'):
+    ip4, ip6 = [] if not ip4 else ip4, [] if not ip6 else ip6
+
+    if ipver.lower() in ['4', 'v4', 'ipv4', 'both'] and len(ip4) > 0:
         print('# --- IPv4 Rules --- #')
         for l in ip4:
             print(l)
         print('# --- End IPv4 Rules --- #')
     print()
-    if opt.ipver.lower() in ['6', 'v6', 'ipv6', 'both']:
+    if ipver.lower() in ['6', 'v6', 'ipv6', 'both'] and len(ip6) > 0:
         print('# --- IPv6 Rules --- #')
         for l in ip6:
             print(l)
         print('# --- End IPv6 Rules --- #')
+
+
+def ap_parse(opt):
+    f = opt.file
+    if f == '-' or (empty(f) and not sys.stdin.isatty()):
+        return parse_stdin(opt.ipver)
+    if empty(f):
+        return parser.error('error: the following arguments are required: file')
+    try:
+        path = find_file(f, SEARCH_DIRS, extensions=conf.SEARCH_EXTENSIONS)
+    except FileNotFoundError:
+        print(f'ERROR: The file "{f}" could not be found in any of your search directories.', file=sys.stderr)
+        return sys.exit(1)
+    print(f'Parsing file: {path}', file=sys.stderr)
+    p = PyreParser()
+    ip4, ip6 = p.parse_file(path=path)
+    print_rules(ip4=ip4, ip6=ip6, ipver=opt.ipver)
 
 
 def ap_reload(opt):
@@ -75,7 +93,7 @@ def ap_reload(opt):
 sp = parser.add_subparsers()
 
 parse_sp = sp.add_parser('parse', description=CMD_DESC['parse'])
-parse_sp.add_argument('file', help='Pyrewall file to parse')
+parse_sp.add_argument('file', default=None, help='Pyrewall file to parse', nargs='?')
 parse_sp.add_argument(
     '-i', type=str, default='both', dest='ipver',
     help='4 = Output only IPv4 config, 6 = Output only IPv6 config, both = Output both configurations (default)'
@@ -96,4 +114,9 @@ try:
     func = args.func
     func(args)
 except AttributeError:
+    if not sys.stdin.isatty():
+        parse_stdin()
+        sys.exit(0)
     parser.error('Too few arguments')
+    sys.exit(1)
+

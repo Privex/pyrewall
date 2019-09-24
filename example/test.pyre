@@ -10,5 +10,7 @@ allow port 80,443,8000-9000
 
 @import example/other.pyre
 
-allow port 9090,1010 from 10.0.0.1,2a07:e01::/32
+reject from 12.34.56.78
+drop forward from 3.4.5.6,2001:def::/64
 
+allow port 9090,1010 from 10.0.0.1,2a07:e01::/32

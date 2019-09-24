@@ -174,13 +174,28 @@ class RuleParser:
         self.rule.action = IPT_ACTION.ALLOW
         return args
 
+    def handle_drop(self, *args, **kwargs):
+        self.rule.action = IPT_ACTION.DROP
+        return args
+
+    def handle_reject(self, *args, **kwargs):
+        self.rule.action = IPT_ACTION.REJECT
+        return args
+
     def handle_forward(self, *args, **kwargs):
-        self.rule.action = IPT_ACTION.FORWARD
+        self.rule.rule_type = IPT_TYPE.FORWARD
+        return args
+
+    def handle_output(self, *args, **kwargs):
+        self.rule.rule_type = IPT_TYPE.OUTPUT
         return args
 
     rule_handlers = {
         'port': handle_port,
         'allow': handle_allow,
+        'accept': handle_allow,
+        'drop': handle_drop,
+        'reject': handle_reject,
         'forward': handle_forward,
         'from': handle_from,
         'to': handle_to,
