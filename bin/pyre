@@ -1,0 +1,68 @@
+#!/usr/bin/env python3.7
+
+import textwrap
+import argparse
+from privex.helpers import ErrHelpParser
+from privex.pyrewall.conf import FILE_SUFFIX, CONF_DIRS, SEARCH_DIRS
+
+CMD_DESC = {
+    'parse': f'Parse a {FILE_SUFFIX} file and output rules compatible with iptables-restore',
+    'reload': f'Reload {FILE_SUFFIX}, .v4 and .v6 files from the first valid folder in CONF_DIRS'
+}
+
+CONF_DIR_LIST = "\n".join("   - " +c for c in CONF_DIRS)
+SEARCH_DIR_LIST = "\n".join("   - " +c for c in SEARCH_DIRS)
+
+HELP_TEXT = textwrap.dedent(f'''\
+
+Sub-commands:
+
+    parse             - {CMD_DESC['parse']}
+    reload            - {CMD_DESC['reload']}
+
+CONF_DIRS: 
+{CONF_DIR_LIST}
+
+SEARCH_DIRS: 
+{SEARCH_DIR_LIST}
+
+''')
+
+parser = ErrHelpParser(
+    description='PyreWall - Python firewall management using iptables',
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+    epilog=HELP_TEXT
+)
+
+
+def ap_parse(opt):
+    f = opt.file
+    print(f'parsing file: {f}')
+
+
+def ap_reload(opt):
+    f = opt.files
+    print(f'reloading files: {f}')
+
+
+sp = parser.add_subparsers()
+
+parse_sp = sp.add_parser('parse', description=CMD_DESC['parse'])
+parse_sp.add_argument('file', help='Pyrewall file to parse')
+
+parse_sp.set_defaults(func=ap_parse)
+
+reload_sp = sp.add_parser('reload', description=CMD_DESC['reload'])
+reload_sp.add_argument('files', help='Pyrewall file(s) to reload', nargs='+')
+
+reload_sp.set_defaults(func=ap_parse)
+
+args = parser.parse_args()
+
+# Resolves the error "'Namespace' object has no attribute 'func'
+# Taken from https://stackoverflow.com/a/54161510/2648583
+try:
+    func = args.func
+    func(args)
+except AttributeError:
+    parser.error('Too few arguments')
