@@ -44,7 +44,7 @@ from privex.pyrewall.exceptions import RuleSyntaxError, InvalidPort
 from privex.loghelper import LogHelper
 
 name = 'pyrewall'
-VERSION = '1.0.0'
+VERSION = '0.8.0'
 
 _lh = LogHelper(__name__, handler_level=LOG_LEVEL)
 
