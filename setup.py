@@ -53,7 +53,7 @@ setup(
 
     license='MIT',
     install_requires=[
-        'privex-helpers>=1.0.0',
+        'privex-helpers>=1.0.0', 'python-dotenv'
     ],
     packages=find_packages(),
     classifiers=[

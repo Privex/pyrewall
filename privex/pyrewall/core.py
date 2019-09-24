@@ -1,5 +1,6 @@
 import re
 from enum import Enum
+from io import TextIOWrapper
 from ipaddress import IPv4Network, IPv6Network, ip_network
 from os.path import join
 from typing import List, Union, Dict, Tuple
@@ -10,15 +11,22 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def find_file(filename: str, paths: List[str]) -> str:
+def find_file(filename: str, paths: List[str], extensions=None) -> str:
     """Attempt to find a file in a given list of paths"""
-    for p in paths:
-        fpath = join(p, filename)
-        try:
-            with open(fpath, 'r'):
-                return fpath
-        except FileNotFoundError:
-            continue
+    extensions = [''] if extensions is None else extensions
+    if '' not in extensions:
+        extensions += ['']
+
+    for ext in extensions:
+        _fn = f'{filename}{ext}'
+        for p in paths:
+            fpath = join(p, _fn)
+            try:
+                with open(fpath, 'r'):
+                    return fpath
+            except FileNotFoundError:
+                continue
+
     raise FileNotFoundError(f'File "{filename}" could not be found in any of the given paths.')
 
 
@@ -160,6 +168,7 @@ class RuleBuilder:
 
     def build_ports(self):
         ports = self.ports
+        log.debug('Port list is: %s', ports)
         if not empty(self.ports, itr=True):
             if len(ports) == 1 and ':' not in ports[0]:
                 return f' --dport {ports[0]}'
@@ -190,6 +199,8 @@ class RuleParser:
         # self.protocol = None
 
     def reset_rule(self):
+        log.debug('Resetting RuleBuilder...')
+        del self.rule
         self.rule = RuleBuilder(rule_type=self.rule_type)
         self.has_v4, self.has_v6 = False, False
         return self.rule
@@ -271,18 +282,19 @@ class RuleParser:
 
         if not self.has_v4 and not self.has_v6:
             res = list(self.rule.build())
-            return res, res
-
-        res = dict(v4=[], v6=[])
-        if self.has_v4:
-            res['v4'] = list(self.rule.build('v4'))
-        if self.has_v6:
-            res['v6'] = list(self.rule.build('v6'))
+            out = res, res
+        else:
+            res = dict(v4=[], v6=[])
+            if self.has_v4:
+                res['v4'] = list(self.rule.build('v4'))
+            if self.has_v6:
+                res['v6'] = list(self.rule.build('v6'))
+            out = res['v4'], res['v6']
 
         if reset_rule:
             self.reset_rule()
 
-        return res['v4'], res['v6']
+        return out
 
     def handle_from(self, *args, **kwargs):
         args = list(args)
@@ -337,6 +349,94 @@ class RuleParser:
         'if-out': handle_if_in,
     }
 
+
+class PyreParser:
+    DEFAULT_CHAINS = {
+        'filter': {
+            'INPUT': ['ACCEPT', '[0:0]'],
+            'FORWARD': ['ACCEPT', '[0:0]'],
+            'OUTPUT': ['ACCEPT', '[0:0]'],
+        },
+        'nat': {
+            'PREROUTING': ['ACCEPT', '[0:0]'],
+            'INPUT': ['ACCEPT', '[0:0]'],
+            'OUTPUT': ['ACCEPT', '[0:0]'],
+            'POSTROUTING': ['ACCEPT', '[0:0]'],
+        }
+    }
+
+    def __init__(self, table='filter', chains: dict = None, **rp_args):
+        self.table = table
+        self.chains = self.DEFAULT_CHAINS[self.table] if not chains else chains
+        self.cache = dict(v4=[], v6=[])
+        self.output = dict(v4=[], v6=[])
+        self.committed = False
+        self.rp = RuleParser(**rp_args)
+
+    def parse_lines(self, lines: List[str]):
+        for _line in lines:
+            line = _line.split()
+            if len(line) == 0 or line[0].strip()[0] == '#':
+                log.debug('Skipping empty line')
+                continue
+            if line[0] in self.control_handlers:
+                log.debug('Detected control keyword "%s" - passing to handler', line[0])
+                self.control_handlers[line[0]](self, *line[1:])
+                continue
+            # self.cache +=
+            log.debug('Passing line starting with "%s" to RuleParser', line[0])
+            v4_rules, v6_rules = self.rp.parse(_line)
+            self.cache['v4'] += v4_rules
+            self.cache['v6'] += v6_rules
+        log.debug('Finished parsing lines. Committing.')
+        self.commit()
+        return self.output['v4'], self.output['v6']
+
+    def parse_file(self, path: str):
+        with open(path, 'r') as fh:
+            lines = fh.readlines()
+            return self.parse_lines(lines=lines)
+
+    def _commit(self, ipver='v4'):
+        log.debug('Committing IP%s cache to output', ipver)
+        header = [f'*{self.table}']
+        for cname, cdata in self.chains.items():
+            header += [f':{cname} {cdata[0]} {cdata[1]}']
+        merged = header + self.cache[ipver] + ['COMMIT', f'### End of table {self.table} ###']
+        self.output[ipver] += merged
+        self.cache[ipver] = []
+
+    def commit(self, *args):
+
+        if len(self.cache['v4']) > 0:
+            self._commit('v4')
+
+        if len(self.cache['v6']) > 0:
+            self._commit('v6')
+
+        self.chains = self.DEFAULT_CHAINS.get(self.table, {})
+
+    def set_table(self, *args):
+        table = args[0]
+        log.debug('Setting table to "%s"', table)
+        if not self.committed:
+            self.commit()
+        self.table = table
+        self.chains = self.DEFAULT_CHAINS.get(self.table, {})
+
+    def set_chain(self, *args):
+        if len(args) == 0:
+            raise AttributeError('set_chain expects at least one argument')
+        chain = args[0]
+        policy = 'ACCEPT' if len(args) < 2 else args[1]
+        packets = '[0:0]' if len(args) < 3 else args[2]
+        log.debug('Setting chain %s to policy %s with packet counts "%s"', chain, policy, packets)
+        self.chains[chain] = [policy, packets]
+
+    control_handlers = {
+        '@table': set_table,
+        '@chain': set_chain,
+    }
 
 
 """

@@ -1,0 +1,12 @@
+@table filter
+
+@chain INPUT DROP
+@chain FORWARD DROP
+
+allow from 185.130.44.0/27
+allow from 2a07:e00::/32
+
+allow port 80,443,8000-9000
+
+allow port 9090,1010 from 10.0.0.1,2a07:e01::/32
+

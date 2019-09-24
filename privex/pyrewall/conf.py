@@ -1,9 +1,13 @@
+import logging
 from os.path import join, dirname, abspath
 from os import getenv as env, getcwd
-from privex.helpers import env_csv
+from privex.helpers import env_csv, env_bool
+import dotenv
+
 
 BASE_DIR = dirname(dirname(dirname(abspath(__file__))))
 """Base folder of the project, i.e. where setup.py and LICENSE are located"""
+
 
 CONF_DIRS = [
     '/etc/pyrewall',
@@ -28,9 +32,30 @@ file from the CLI
 For convenience, the current working directory takes priority for SEARCH_DIRS
 """
 
+# Load .env file (search through SEARCH_DIRS, BASE_DIR, as well as dotenv's auto finding)
+for d in SEARCH_DIRS:
+    dotenv.load_dotenv(join(d, '.env'))
+
+dotenv.load_dotenv(join(BASE_DIR, '.env'))
+dotenv.load_dotenv()
+
+DEBUG = env_bool('DEBUG', False)
+
 CONF_DIRS = env_csv('CONF_DIRS', CONF_DIRS)
 SEARCH_DIRS = env_csv('SEARCH_DIRS', SEARCH_DIRS)
 
 FILE_SUFFIX = env('FILE_SUFFIX', '.pyre')
 IPT4_SUFFIX = env('IPT4_SUFFIX', '.v4')
 IPT6_SUFFIX = env('IPT6_SUFFIX', '.v6')
+
+
+SEARCH_EXTENSIONS = env_csv('SEARCH_EXTENSIONS', ['', FILE_SUFFIX, IPT4_SUFFIX, IPT6_SUFFIX])
+
+# Valid environment log levels (from least to most severe) are:
+# DEBUG, INFO, WARNING, ERROR, FATAL, CRITICAL
+LOG_LEVEL = env('LOG_LEVEL', None)
+LOG_LEVEL = logging.getLevelName(str(LOG_LEVEL).upper()) if LOG_LEVEL is not None else None
+
+if LOG_LEVEL is None:
+    LOG_LEVEL = logging.DEBUG if DEBUG else logging.INFO
+

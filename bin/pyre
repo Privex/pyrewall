@@ -1,9 +1,11 @@
-#!/usr/bin/env python3.7
-
+#!/usr/bin/env python3
+import sys
 import textwrap
 import argparse
 from privex.helpers import ErrHelpParser
+from privex.pyrewall import conf
 from privex.pyrewall.conf import FILE_SUFFIX, CONF_DIRS, SEARCH_DIRS
+from privex.pyrewall.core import find_file, PyreParser
 
 CMD_DESC = {
     'parse': f'Parse a {FILE_SUFFIX} file and output rules compatible with iptables-restore',
@@ -37,7 +39,24 @@ parser = ErrHelpParser(
 
 def ap_parse(opt):
     f = opt.file
-    print(f'parsing file: {f}')
+    try:
+        path = find_file(f, SEARCH_DIRS, extensions=conf.SEARCH_EXTENSIONS)
+    except FileNotFoundError:
+        print(f'ERROR: The file "{f}" could not be found in any of your search directories.', file=sys.stderr)
+        return
+    # ext = path.split('.')[-1]
+    print(f'Parsing file: {path}', file=sys.stderr)
+    p = PyreParser()
+    ip4, ip6 = p.parse_file(path=path)
+    print('# --- IPv4 Rules --- #')
+    for l in ip4:
+        print(l)
+    print('# --- End IPv4 Rules --- #')
+    print()
+    print('# --- IPv6 Rules --- #')
+    for l in ip6:
+        print(l)
+    print('# --- End IPv6 Rules --- #')
 
 
 def ap_reload(opt):
