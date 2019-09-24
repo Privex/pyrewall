@@ -7,6 +7,7 @@ from privex.pyrewall.RuleBuilder import RuleBuilder
 from privex.pyrewall.exceptions import RuleSyntaxError, InvalidPort
 from privex.pyrewall.core import valid_port
 from privex.pyrewall.types import IPT_TYPE, IPT_ACTION
+from privex.pyrewall import conf
 
 log = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ class RuleParser:
     """
     default_action: IPT_ACTION
     action: IPT_ACTION
-    rule_type: IPT_TYPE
+    rule_type: str
     table: str
     v4_rules: List[str]
     v6_rules: List[str]
@@ -36,11 +37,12 @@ class RuleParser:
     # protocol: str
     rule: RuleBuilder
 
-    def __init__(self, rule_type: IPT_TYPE = IPT_TYPE.INPUT, table='filter', strict=False):
+    def __init__(self, rule_type: str = IPT_TYPE.INPUT.value, table='filter', strict=False):
         self.table = table
-        self.rule_type = rule_type
+        self.rule_type = str(rule_type)
         self.default_action = IPT_ACTION.ALLOW
         self.rule = None
+        self.chains = dict(conf.DEFAULT_CHAINS[self.table])
         self.strict = is_true(strict)
         self.has_v4, self.has_v6 = False, False
         self.reset_rule()
@@ -53,13 +55,13 @@ class RuleParser:
         self.has_v4, self.has_v6 = False, False
         return self.rule
 
-    def handle_port(self, *args, protocol=None, **kwargs):
+    def parse_ports(self, *args, protocol=None, **kwargs):
         protocol = self.rule.protocol if protocol is None else protocol
         args = list(args)
 
         for i, a in enumerate(args[0:2]):
             a = str(a)
-            if a.lower() in ['tcp', 'udp']:
+            if a.lower() in ['tcp', 'udp', 'both']:
                 args.pop(i)
                 protocol = a.lower() if protocol is not False else False
                 continue
@@ -73,9 +75,13 @@ class RuleParser:
         if len(arg_valid.groups()) == 0:
             raise RuleSyntaxError(f"Syntax error while parsing argument to PORT rule: '{a}'")
 
-        if protocol is not False:
+        if protocol is not False and self.rule.protocol is None:
             protocol = 'tcp' if empty(protocol) else protocol
-            self.rule.protocol = protocol
+            if protocol == 'both':
+                self.rule.protocol = 'tcp'
+                self.rule.extra_protocols.append('udp')
+            else:
+                self.rule.protocol = protocol
 
         ports = []
         _ports = a.split(',')
@@ -98,7 +104,19 @@ class RuleParser:
         if len(ports) == 0:
             raise RuleSyntaxError('No valid ports passed to PORT rule...')
 
+        return ports, args
+
+    def handle_port(self, *args, protocol=None, **kwargs):
+        args = list(args)
+        ports, args = self.parse_ports(*args, protocol=protocol, **kwargs)
         self.rule.ports += ports
+        args.pop(0)
+        return args
+
+    def handle_sport(self, *args, protocol=None, **kwargs):
+        args = list(args)
+        ports, args = self.parse_ports(*args, protocol=protocol, **kwargs)
+        self.rule.sports += ports
         args.pop(0)
         return args
 
@@ -183,15 +201,41 @@ class RuleParser:
         return args
 
     def handle_forward(self, *args, **kwargs):
-        self.rule.rule_type = IPT_TYPE.FORWARD
+        self.rule.rule_type = IPT_TYPE.FORWARD.value
         return args
 
     def handle_output(self, *args, **kwargs):
-        self.rule.rule_type = IPT_TYPE.OUTPUT
+        self.rule.rule_type = IPT_TYPE.OUTPUT.value
+        return args
+
+    def handle_state(self, *args, **kwargs):
+        args = list(args)
+        _state = args.pop(0).split(',')
+
+        for i, state in enumerate(_state):
+            if state in ['invalid', 'new', 'related', 'established']: _state[i] = state.upper()
+
+        self.rule.match_rules.append(f'-m state --state {",".join(_state)}')
+        return args
+
+    def handle_all(self, *args):
+        curr_type = str(self.rule.rule_type)
+        ftypes = [rtype for rtype in self.chains if f'-A {rtype}' != curr_type]
+        self.rule.add_rule_type(*ftypes)
+        return list(args)
+
+    def handle_chain(self, *args):
+        args = list(args)
+        chains = args.pop(0).split(',')
+        chains = [c.upper() for c in chains if c in ['input', 'forward', 'output', 'postrouting', 'prerouting']]
+        self.rule.rule_type = f'-A {chains[0]}'
+        if len(chains) > 1:
+            self.rule.add_rule_type(*chains[1:])
         return args
 
     rule_handlers = {
         'port': handle_port,
+        'sport': handle_sport,
         'allow': handle_allow,
         'accept': handle_allow,
         'drop': handle_drop,
@@ -201,4 +245,7 @@ class RuleParser:
         'to': handle_to,
         'if-in': handle_if_in,
         'if-out': handle_if_in,
+        'state': handle_state,
+        'all': handle_all,
+        'chain': handle_chain,
     }

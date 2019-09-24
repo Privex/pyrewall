@@ -25,23 +25,11 @@ class PyreParser:
         >>> r.parse_file(find_file('test.pyre', paths=conf.SEARCH_DIRS, extensions=conf.SEARCH_EXTENSIONS))
 
     """
-    DEFAULT_CHAINS = {
-        'filter': {
-            'INPUT': ['ACCEPT', '[0:0]'],
-            'FORWARD': ['ACCEPT', '[0:0]'],
-            'OUTPUT': ['ACCEPT', '[0:0]'],
-        },
-        'nat': {
-            'PREROUTING': ['ACCEPT', '[0:0]'],
-            'INPUT': ['ACCEPT', '[0:0]'],
-            'OUTPUT': ['ACCEPT', '[0:0]'],
-            'POSTROUTING': ['ACCEPT', '[0:0]'],
-        }
-    }
+    DEFAULT_CHAINS = conf.DEFAULT_CHAINS
 
     def __init__(self, table='filter', chains: dict = None, **rp_args):
         self.table = table
-        self.chains = self.DEFAULT_CHAINS[self.table] if not chains else chains
+        self.chains = dict(self.DEFAULT_CHAINS[self.table]) if not chains else chains
         self.cache = dict(v4=[], v6=[])
         self.output = dict(v4=[], v6=[])
         self.committed = False
@@ -120,8 +108,8 @@ class PyreParser:
         log.debug('Setting table to "%s"', table)
         if not self.committed:
             self.commit()
-        self.table = table
-        self.chains = self.DEFAULT_CHAINS.get(self.table, {})
+        self.table = self.rp.table = table
+        self.chains = self.rp.chains = dict(self.DEFAULT_CHAINS.get(self.table, {}))
 
     def set_chain(self, *args):
         if len(args) == 0:
@@ -130,7 +118,7 @@ class PyreParser:
         policy = 'ACCEPT' if len(args) < 2 else args[1]
         packets = '[0:0]' if len(args) < 3 else args[2]
         log.debug('Setting chain %s to policy %s with packet counts "%s"', chain, policy, packets)
-        self.chains[chain] = [policy, packets]
+        self.chains[chain] = self.rp.chains[chain] = [policy, packets]
 
     control_handlers = {
         '@table': set_table,

@@ -29,11 +29,13 @@ class RuleBuilder:
     default_action: IPT_ACTION = IPT_ACTION.ALLOW
     action: IPT_ACTION
     custom_action: str
-    rule_type: IPT_TYPE
+    rule_type: str
+    extra_types: List[str]
 
     protocol: str
     extra_protocols: List[str]
     ports: List[str]
+    sports: List[str]
     match_rules: List[str]
 
     from_cidr: Dict[str, List[Union[IPv4Network, IPv6Network]]]
@@ -41,20 +43,22 @@ class RuleBuilder:
     from_iface: List[str]
     to_iface: List[str]
 
-    def __init__(self, rule_type: IPT_TYPE = IPT_TYPE.INPUT, **kwargs):
-        self.rule_type = rule_type
+    def __init__(self, rule_type: str = IPT_TYPE.INPUT.value, **kwargs):
+        self.rule_type = str(rule_type)
         self.action, self.protocol, self.from_cidr, self.to_cidr = None, None, dict(v4=[], v6=[]), dict(v4=[], v6=[])
         self.from_iface, self.to_iface = [], []
-        self.ports, self.extra_protocols, self.match_rules = [], [], []
+        self.ports, self.sports, self.extra_protocols, self.match_rules, self.extra_types = [], [], [], [], []
 
         for k, v in kwargs.items():
             if hasattr(self, k):
                 setattr(self, k, v)
 
-    def _build(self, protocol=None, from_cidr=None, to_cidr=None, from_iface=None, to_iface=None, ipver='v4'):
+    def _build(self, protocol=None, from_cidr=None, to_cidr=None, from_iface=None, to_iface=None,
+               ipver='v4', rule_type: str = None):
+
         rule = ''
         action = self.default_action if self.action is None else self.action
-        rule += self.rule_type.value
+        rule += self.rule_type if empty(rule_type) else f'-A {rule_type}'
         protocol = self.protocol if empty(protocol) else protocol
 
         s_from = self.from_cidr[ipver]
@@ -68,6 +72,7 @@ class RuleBuilder:
         if not empty(protocol): rule += f' -p {protocol}'
 
         rule += self.build_ports()
+        rule += self.build_sports()
 
         for m in self.match_rules:
             rule += f' {m}'
@@ -85,15 +90,19 @@ class RuleBuilder:
         rules = [self._build(ipver=ipver)]
         extra_rule_args = []
 
-        def add_arg(i, **data):
-            if len(extra_rule_args) > i:
-                extra_rule_args[i] = {**extra_rule_args[i], **data}
+        def add_arg(pos, **data):
+            if len(extra_rule_args) > pos:
+                extra_rule_args[pos] = {**extra_rule_args[pos], **data}
                 return
             extra_rule_args.append(data)
 
         if not empty(self.extra_protocols, itr=True):
             for i, p in enumerate(self.extra_protocols):
                 add_arg(i, protocol=p)
+
+        if not empty(self.extra_types, itr=True):
+            for i, p in enumerate(self.extra_types):
+                add_arg(i, rule_type=p)
 
         if len(self.from_cidr[ipver]) > 1:
             for i, p in enumerate(self.from_cidr[ipver][1:]):
@@ -112,7 +121,7 @@ class RuleBuilder:
                 add_arg(i, to_iface=p)
 
         for a in extra_rule_args:
-            rules.append(self._build(**a))
+            rules.append(self._build(**a, ipver=ipver))
 
         # if not empty(self.extra_protocols, itr=True):
         # rules.append(self._build(protocol=p))
@@ -120,15 +129,26 @@ class RuleBuilder:
         return rules
 
     def add_from_cidr(self, *args, ipver='v4'): self.from_cidr[ipver] += args
+
     def add_to_cidr(self, *args, ipver='v4'): self.to_cidr[ipver] += args
+
     def add_from_iface(self, *args): self.from_iface += args
+
     def add_to_iface(self, *args): self.to_iface += args
 
-    def build_ports(self):
-        ports = self.ports
-        if not empty(self.ports, itr=True):
+    def add_rule_type(self, *args): self.extra_types += args
+
+    def _parse_ports(self, ports, direction='d'):
+        if not empty(ports, itr=True):
             if len(ports) == 1 and ':' not in ports[0]:
-                return f' --dport {ports[0]}'
+                return f' --{direction}port {ports[0]}'
             portstr = ','.join(ports)
-            return f' -m multiport --dports {portstr}'
+            return f' -m multiport --{direction}ports {portstr}'
         return ''
+
+    def build_ports(self):
+        return self._parse_ports(ports=self.ports, direction='d')
+
+    def build_sports(self):
+        return self._parse_ports(ports=self.sports, direction='s')
+

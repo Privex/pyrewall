@@ -64,3 +64,17 @@ EXTENSION_TYPES = {
     IPT4_SUFFIX: 'ip4',
     IPT6_SUFFIX: 'ip6',
 }
+
+DEFAULT_CHAINS = {
+    'filter': {
+        'INPUT': ['ACCEPT', '[0:0]'],
+        'FORWARD': ['ACCEPT', '[0:0]'],
+        'OUTPUT': ['ACCEPT', '[0:0]'],
+    },
+    'nat': {
+        'PREROUTING': ['ACCEPT', '[0:0]'],
+        'INPUT': ['ACCEPT', '[0:0]'],
+        'OUTPUT': ['ACCEPT', '[0:0]'],
+        'POSTROUTING': ['ACCEPT', '[0:0]'],
+    }
+}
