@@ -59,3 +59,8 @@ LOG_LEVEL = logging.getLevelName(str(LOG_LEVEL).upper()) if LOG_LEVEL is not Non
 if LOG_LEVEL is None:
     LOG_LEVEL = logging.DEBUG if DEBUG else logging.INFO
 
+EXTENSION_TYPES = {
+    FILE_SUFFIX: 'pyre',
+    IPT4_SUFFIX: 'ip4',
+    IPT6_SUFFIX: 'ip6',
+}

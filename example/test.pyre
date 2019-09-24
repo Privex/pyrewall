@@ -8,5 +8,7 @@ allow from 2a07:e00::/32
 
 allow port 80,443,8000-9000
 
+@import example/other.pyre
+
 allow port 9090,1010 from 10.0.0.1,2a07:e01::/32
 

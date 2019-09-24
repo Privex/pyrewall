@@ -3,9 +3,10 @@ import sys
 import textwrap
 import argparse
 from privex.helpers import ErrHelpParser
-from privex.pyrewall import conf
+from privex.pyrewall import conf, VERSION
 from privex.pyrewall.conf import FILE_SUFFIX, CONF_DIRS, SEARCH_DIRS
-from privex.pyrewall.core import find_file, PyreParser
+from privex.pyrewall.core import find_file
+from privex.pyrewall.PyreParser import PyreParser
 
 CMD_DESC = {
     'parse': f'Parse a {FILE_SUFFIX} file and output rules compatible with iptables-restore',
@@ -17,10 +18,15 @@ SEARCH_DIR_LIST = "\n".join("   - " +c for c in SEARCH_DIRS)
 
 HELP_TEXT = textwrap.dedent(f'''\
 
+PyreWall Version v{VERSION}
+(C) 2019 Privex Inc. ( https://wwww.privex.io )
+Official Repo: https://github.com/Privex/pyrewall
+
+
 Sub-commands:
 
-    parse             - {CMD_DESC['parse']}
-    reload            - {CMD_DESC['reload']}
+    parse  (-i 4|6) [filename]      - {CMD_DESC['parse']}
+    reload                          - {CMD_DESC['reload']}
 
 CONF_DIRS: 
 {CONF_DIR_LIST}
@@ -43,20 +49,22 @@ def ap_parse(opt):
         path = find_file(f, SEARCH_DIRS, extensions=conf.SEARCH_EXTENSIONS)
     except FileNotFoundError:
         print(f'ERROR: The file "{f}" could not be found in any of your search directories.', file=sys.stderr)
-        return
+        return sys.exit(1)
     # ext = path.split('.')[-1]
     print(f'Parsing file: {path}', file=sys.stderr)
     p = PyreParser()
     ip4, ip6 = p.parse_file(path=path)
-    print('# --- IPv4 Rules --- #')
-    for l in ip4:
-        print(l)
-    print('# --- End IPv4 Rules --- #')
+    if opt.ipver.lower() in ['4', 'v4', 'ipv4', 'both']:
+        print('# --- IPv4 Rules --- #')
+        for l in ip4:
+            print(l)
+        print('# --- End IPv4 Rules --- #')
     print()
-    print('# --- IPv6 Rules --- #')
-    for l in ip6:
-        print(l)
-    print('# --- End IPv6 Rules --- #')
+    if opt.ipver.lower() in ['6', 'v6', 'ipv6', 'both']:
+        print('# --- IPv6 Rules --- #')
+        for l in ip6:
+            print(l)
+        print('# --- End IPv6 Rules --- #')
 
 
 def ap_reload(opt):
@@ -68,6 +76,10 @@ sp = parser.add_subparsers()
 
 parse_sp = sp.add_parser('parse', description=CMD_DESC['parse'])
 parse_sp.add_argument('file', help='Pyrewall file to parse')
+parse_sp.add_argument(
+    '-i', type=str, default='both', dest='ipver',
+    help='4 = Output only IPv4 config, 6 = Output only IPv6 config, both = Output both configurations (default)'
+)
 
 parse_sp.set_defaults(func=ap_parse)
 

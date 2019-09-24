@@ -35,6 +35,7 @@ otherwise to promote the sale, use or other dealings in this Software without pr
 """
 
 from setuptools import setup, find_packages
+from privex.pyrewall import VERSION
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -42,7 +43,7 @@ with open("README.md", "r") as fh:
 setup(
     name='pyrewall',
 
-    version='1.0.0',
+    version=VERSION,
 
     description='A Python tool / service for managing iptables firewalls with ease',
     long_description=long_description,

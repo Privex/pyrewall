@@ -35,10 +35,16 @@ otherwise to promote the sale, use or other dealings in this Software without pr
 import sys
 
 from privex.pyrewall.conf import LOG_LEVEL
-from privex.pyrewall.core import RuleParser, RuleBuilder, RuleSyntaxError, InvalidPort, IPT_ACTION
+from privex.pyrewall.core import find_file, valid_port
+from privex.pyrewall.RuleParser import RuleParser
+from privex.pyrewall.RuleBuilder import RuleBuilder
+from privex.pyrewall.PyreParser import PyreParser
+from privex.pyrewall.types import IPT_ACTION, IPT_TYPE
+from privex.pyrewall.exceptions import RuleSyntaxError, InvalidPort
 from privex.loghelper import LogHelper
 
 name = 'pyrewall'
+VERSION = '1.0.0'
 
 _lh = LogHelper(__name__, handler_level=LOG_LEVEL)
 

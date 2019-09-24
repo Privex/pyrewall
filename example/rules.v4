@@ -1,0 +1,6 @@
+# Rules.v4 example iptables-persistent import file
+-A INPUT -s 10.8.0.0/24 -j ACCEPT
+-A INPUT -p udp -m udp --dport 51515 -j ACCEPT
+-A INPUT -p tcp -m tcp --dport 51515 -j ACCEPT
+-A INPUT -s 10.65.0.0/16 -i infra -j ACCEPT
+# End of Rules.v4 example iptables-persistent import file
