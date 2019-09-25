@@ -1,6 +1,14 @@
 Privex Pyrewall
 ================
 
+[![Build Status](https://travis-ci.com/Privex/pyrewall.svg?branch=master)](https://travis-ci.com/Privex/pyrewall) 
+[![Codecov](https://img.shields.io/codecov/c/github/Privex/pyrewall)](https://codecov.io/gh/Privex/pyrewall)  
+[![PyPi Version](https://img.shields.io/pypi/v/privex-jsonrpc.svg)](https://pypi.org/project/pyrewall/)
+![License Button](https://img.shields.io/pypi/l/pyrewall) 
+![PyPI - Downloads](https://img.shields.io/pypi/dm/pyrewall)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pyrewall) 
+![GitHub last commit](https://img.shields.io/github/last-commit/Privex/pyrewall)
+
 An iptables firewall management system in Python.
 
 WARNING: Still under construction

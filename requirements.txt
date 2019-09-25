@@ -1,0 +1,8 @@
+privex-helpers>=1.2.0
+python-dotenv
+
+# Unit testing
+coverage
+pytest
+pytest-cov
+codecov

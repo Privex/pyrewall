@@ -54,12 +54,14 @@ setup(
 
     license='MIT',
     install_requires=[
-        'privex-helpers>=1.0.0', 'python-dotenv'
+        'privex-helpers>=1.2.0', 'python-dotenv'
     ],
     packages=find_packages(),
     scripts=['bin/pyre'],
     classifiers=[
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
         "License :: OSI Approved :: MIT License",
         "Operating System :: POSIX :: Linux",
     ],
