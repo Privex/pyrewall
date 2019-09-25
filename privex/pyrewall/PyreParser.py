@@ -118,15 +118,17 @@ class PyreParser:
         sline = line.split()
         if len(sline) == 0 or sline[0].strip()[0] == '#':
             log.debug('Skipping empty line')
-            return
+            return [], []
         if sline[0] in self.control_handlers:
             log.debug('Detected control keyword "%s" - passing to handler', sline[0])
             self.control_handlers[sline[0]](self, *sline[1:])
-            return
+            return [], []
         log.debug('Passing line starting with "%s" to RuleParser', sline[0])
         v4_rules, v6_rules = self.rp.parse(line)
         self.cache.v4 += v4_rules
         self.cache.v6 += v6_rules
+
+        return v4_rules, v6_rules
 
     def parse_file(self, path: str) -> Tuple[List[str], List[str]]:
         """
