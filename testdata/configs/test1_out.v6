@@ -1,0 +1,17 @@
+*filter
+:INPUT DROP [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
+-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -p tcp -m multiport --dports 80,443 -s 2a07:e00::1/128 -j ACCEPT
+-A INPUT -p udp -m multiport --dports 80,443 -s 2a07:e00::1/128 -j ACCEPT
+-A FORWARD -p tcp -m multiport --dports 80,443 -s 2a07:e00::1/128 -j ACCEPT
+-A FORWARD -p udp -m multiport --dports 80,443 -s 2a07:e00::1/128 -j ACCEPT
+-A OUTPUT -p tcp -m multiport --dports 80,443 -s 2a07:e00::1/128 -j ACCEPT
+-A OUTPUT -p udp -m multiport --dports 80,443 -s 2a07:e00::1/128 -j ACCEPT
+-A INPUT -p tcp --dport 8080 -j ACCEPT
+-A INPUT -p udp -m multiport --sports 1000:2000 -j ACCEPT
+-A FORWARD -s 2001:def::/64 -j DROP
+COMMIT
+### End of table filter ###

@@ -1,0 +1,24 @@
+*filter
+:INPUT DROP [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
+-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -p tcp -m multiport --dports 80,443 -s 1.2.3.4/32 -j ACCEPT
+-A INPUT -p tcp -m multiport --dports 80,443 -s 192.168.0.0/16 -j ACCEPT
+-A INPUT -p udp -m multiport --dports 80,443 -s 1.2.3.4/32 -j ACCEPT
+-A INPUT -p udp -m multiport --dports 80,443 -s 192.168.0.0/16 -j ACCEPT
+-A FORWARD -p tcp -m multiport --dports 80,443 -s 1.2.3.4/32 -j ACCEPT
+-A FORWARD -p tcp -m multiport --dports 80,443 -s 192.168.0.0/16 -j ACCEPT
+-A FORWARD -p udp -m multiport --dports 80,443 -s 1.2.3.4/32 -j ACCEPT
+-A FORWARD -p udp -m multiport --dports 80,443 -s 192.168.0.0/16 -j ACCEPT
+-A OUTPUT -p tcp -m multiport --dports 80,443 -s 1.2.3.4/32 -j ACCEPT
+-A OUTPUT -p tcp -m multiport --dports 80,443 -s 192.168.0.0/16 -j ACCEPT
+-A OUTPUT -p udp -m multiport --dports 80,443 -s 1.2.3.4/32 -j ACCEPT
+-A OUTPUT -p udp -m multiport --dports 80,443 -s 192.168.0.0/16 -j ACCEPT
+-A INPUT -p tcp --dport 8080 -j ACCEPT
+-A FORWARD -s 10.1.0.0/16 -j ACCEPT
+-A INPUT -p udp -m multiport --sports 1000:2000 -j ACCEPT
+-A INPUT -s 12.34.56.78/32 -j REJECT
+COMMIT
+### End of table filter ###

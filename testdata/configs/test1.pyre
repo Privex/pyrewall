@@ -1,0 +1,15 @@
+@table filter
+
+@chain INPUT DROP
+
+allow chain input,forward state related,established
+
+allow all port 80,443 both from 1.2.3.4,192.168.0.0/16,2a07:e00::1
+
+allow port 8080
+allow forward from 10.1.2.3/16
+
+allow sport 1000-2000 udp
+
+reject from 12.34.56.78
+drop forward from 2001:def::/64
