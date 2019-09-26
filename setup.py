@@ -57,7 +57,7 @@ setup(
         'privex-helpers>=1.2.0', 'python-dotenv', 'prompt_toolkit'
     ],
     packages=find_packages(),
-    scripts=['bin/pyre'],
+    scripts=['bin/pyre', 'bin/pyre-parse', 'bin/pyre-parse4', 'bin/pyre-parse6'],
     classifiers=[
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.6",
