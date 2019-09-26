@@ -1,18 +1,24 @@
-import atexit
 import readline
-import sys
 import textwrap
-import curses
 import os
-from cmd import Cmd
-from os.path import join
 from typing import List
-from os import getenv as env
-from privex.helpers import empty
 
+from privex.helpers import empty
+from prompt_toolkit import PromptSession, print_formatted_text, ANSI
+from prompt_toolkit.completion import Completer, WordCompleter
+from prompt_toolkit.formatted_text import PygmentsTokens
+from prompt_toolkit.history import FileHistory
+from prompt_toolkit.lexers import PygmentsLexer
+from prompt_toolkit.styles import Style, merge_styles, style_from_pygments_cls
+from pygments.lexers.python import Python3Lexer
 from privex.pyrewall import VERSION, PyreParser
+import pygments.token
 from colorama import Fore, Back
 import logging
+
+from privex.pyrewall.PyreLexer import PyreLexer
+from pygments.styles.fruity import FruityStyle
+from privex.pyrewall.core import columnize
 
 log = logging.getLogger(__name__)
 
@@ -22,129 +28,199 @@ RESET = Fore.RESET
 colorcodes = [getattr(Fore, c) for c in dir(Fore) if c[0] != '_']
 
 
-#hist_file =
-
-class PyreRepl(Cmd):
+class PyreRepl:
     file = None
-    prompt = " Pyre >> "
-    extra_cmds = {
-        '\\?': Cmd.do_help
-    }
+
     buffer: List[str]
     pyre = PyreParser()
     hist_file_name = '.pyre_repl_history'
 
+    style = merge_styles([
+        style_from_pygments_cls(FruityStyle),
+        Style.from_dict({
+            '': '#0a0eff',
+            'pygments.text': '#0a0eff',
+            'prompt': '#00ff00 bold',
+            'pygments.number': '#7ec0ee'
+        })
+    ])
+    prompt = [('class:prompt', ' Pyre >> ')]
+
+    ruler = '='
+
     def __init__(self, *args, **kwargs):
         self.buffer = []
-        self.hist_len = 0
-        self.hist_file = None
-        self.history = []
+        self.hist_file = os.path.expanduser(f'~/{self.hist_file_name}')
         self.should_exit = False
-        readline.set_auto_history(False)
-        super().__init__(*args, **kwargs)
+        self.keywords = list(self.pyre.control_handlers.keys()) + list(self.pyre.rp.rule_handlers.keys())
+        self.completer = WordCompleter(self.keywords)
+        open(self.hist_file, 'a').close()
+        self.session = PromptSession(history=FileHistory(self.hist_file))
 
     def emptyline(self):
         return
 
     def preloop(self):
-        # if empty(env('HOME')):
-        #     self.hist_file = None
-        #     return msg('red', 'WARNING: $HOME is undefined. Not saving REPL history...')
-        self.hist_file = os.path.join(os.path.expanduser("~"), self.hist_file_name)
-        readline.set_auto_history(False)
-        readline.set_history_length(1000)
-        try:
-            # with open(self.hist_file, 'r'):
-            #     log.debug('Successfully opened history file')
-            readline.read_history_file(self.hist_file_name)
-        except FileNotFoundError:
-            log.info("No history file at '%s' ", self.hist_file_name)
-            # open(self.hist_file, 'a').close()
-            pass
-        atexit.register(self.save_history)
-        msg('green', f'Saving REPL history to {self.hist_file}')
+        pass
 
     def print_topics(self, header, cmds, cmdlen, maxcol):
         if cmds:
             msg('blue', str(header))
             if self.ruler:
-                self.stdout.write("%s\n" % str(self.ruler * len(header)))
-            self.stdout.write(GREEN)
-            self.columnize(cmds, maxcol - 1)
-            self.stdout.write(RESET + "\n")
+                print("%s" % str(self.ruler * len(header)))
+            print(GREEN)
+            columnize(cmds, maxcol - 1)
+            print(RESET)
 
-    def do_exit(self, arg=None):
+    def do_exit(self, *args):
         self.should_exit = True
-        return ''
 
-    def do_help(self, arg):
+    def do_help(self, *args):
         """List available commands with "help" or detailed help with "help cmd"."""
-        super().do_help(arg=arg)
-        if not arg:
+        if len(args) == 0:
             pyre_help_header = 'Pyre REPL Commands'
             self.print_topics(pyre_help_header, list(self.extra_cmds.keys()), 15, 80)
 
-    def do_show(self, arg):
-        arg = arg.split()
-        msg('green', 'Current PyreWall rules executed during this session:')
-        msg('### Begin Pyre Rules ###')
-        for l in self.buffer:
-            print(l.strip())
-        msg('### End Pyre Rules ###')
+    def do_show(self, fmt=None, fmt2=None, *args):
+        if fmt is not None:
+            self.pyre = PyreParser()
+            fmt_v4 = ['ipt', 'iptables', 'ip4', 'ipt4', 'iptables4']
+            fmt_v6 = ['ipt6', 'ip6tables', 'ip6', 'iptables6']
+            ip4, ip6 = self.pyre.parse_lines(self.buffer)
+            if fmt in fmt_v4 or fmt2 in fmt_v4:
+                msg('green', 'Current session parsed into IPv4 iptables rules:')
+                msg('blue', '### Begin IPTables v4 Rules ###')
+                for l in ip4:
+                    print(l)
+                msg('blue', '### End IPTables v4 Rules ###')
 
-    def default(self, line):
-        line = str(line).strip()
-        l = line.split()
-        cmdname = l[0].strip()
-        arg = ' '.join(l[1:])
-        if cmdname in self.extra_cmds:
-            return self.extra_cmds[cmdname](self, arg)
-
-        try:
-            # noinspection PyProtectedMember
-            v4r, v6r = self.pyre._parse(line=line)
-            self.buffer.append(line)
-            if len(v4r) > 0:
-                msg('blue', '### IPv4 Rules ###')
-                for r in v4r:
-                    print(r)
-                msg('blue', '### End IPv4 Rules ###\n')
-            if len(v6r) > 0:
-                msg('blue', '### IPv6 Rules ###')
-                for r in v6r:
-                    print(r)
-                msg('blue', '### End IPv6 Rules ###\n')
-
-        except (BaseException, Exception) as e:
-            msg('red', 'Got exception while parsing Pyre line!')
-            msg('red', 'Exception:', type(e), str(e))
+            if fmt in fmt_v6 or fmt2 in fmt_v6:
+                msg('green', 'Current session parsed into IPv6 iptables rules:')
+                msg('blue', '### Begin IPTables v6 Rules ###')
+                for l in ip6:
+                    print(l)
+                msg('blue', '### End IPTables v6 Rules ###')
             return
 
-    def do_py(self, arg=''):
+        msg('green', 'Current PyreWall rules executed during this session:')
+        msg('### Begin Pyre Rules ###')
+        tokens = list()
+        for l in self.buffer:
+            if empty(l.strip()): continue
+            tokens += list(pygments.lex(l.strip(), lexer=PyreLexer()))
+        print_formatted_text(PygmentsTokens(tokens), style=self.style, end='')
+        # print(l.strip())
+        msg('### End Pyre Rules ###')
+
+    def parse_lines(self, *lines):
+        v4r, v6r = [], []
+        msg()
+        for ln in lines:
+            l = ln.split()
+            if len(l) == 0: continue
+            cmdname, args = l[0].strip(), l[1:]
+
+            cmds = [d for d in dir(self.__class__) if d[0:3] == 'do_']
+            if 'do_' + cmdname in cmds:
+                getattr(self, 'do_' + cmdname)(*args)
+                continue
+
+            if cmdname in self.extra_cmds:
+                self.extra_cmds[cmdname](self, *args)
+                continue
+
+            try:
+                _v4r, _v6r = self.pyre._parse(line=ln)
+                if _v4r is None and _v6r is None:
+                    msg('yellow', "# Warning: The line entered does not appear to be a valid command, nor valid Pyre.")
+                    continue
+                self.buffer.append(ln)
+                v4r += _v4r
+                v6r += _v6r
+            except (BaseException, Exception) as e:
+                msg('red', 'Got exception while parsing Pyre line!')
+                msg('red', 'Exception:', type(e), str(e))
+                return
+        if len(v4r) > 0:
+            msg('blue', '### IPv4 Rules ###')
+            for r in v4r:
+                print(r)
+            msg('blue', '### End IPv4 Rules ###\n')
+        if len(v6r) > 0:
+            msg('blue', '### IPv6 Rules ###')
+            for r in v6r:
+                print(r)
+            msg('blue', '### End IPv6 Rules ###\n')
+        msg()
+
+
+    def default(self, line):
+        return self.parse_lines(*line.split('\n'))
+        # line = str(line).strip()
+        # if '\n' in line:
+        #     lines = line.split('\n')
+        #
+        #
+        # l = line.split()
+        # if len(l) == 0: return
+        # cmdname, args = l[0].strip(), l[1:]
+        #
+        # cmds = [d for d in dir(self.__class__) if d[0:3] == 'do_']
+        # if 'do_' + cmdname in cmds:
+        #     log.info('Calling %s', 'do_' + cmdname)
+        #     return getattr(self, 'do_' + cmdname)(*args)
+        # if cmdname in self.extra_cmds:
+        #     log.info('Calling extra cmd %s', cmdname)
+        #     return self.extra_cmds[cmdname](self, *args)
+        #
+        # try:
+        #     # noinspection PyProtectedMember
+        #     v4r, v6r = self.pyre._parse(line=line)
+        #     if v4r is None and v6r is None:
+        #         msg('yellow', "Warning: The line entered does not appear to be a valid command, nor valid Pyre.")
+        #         return
+        #     self.buffer.append(line)
+        #     if len(v4r) > 0:
+        #         msg('blue', '### IPv4 Rules ###')
+        #         for r in v4r:
+        #             print(r)
+        #         msg('blue', '### End IPv4 Rules ###\n')
+        #     if len(v6r) > 0:
+        #         msg('blue', '### IPv6 Rules ###')
+        #         for r in v6r:
+        #             print(r)
+        #         msg('blue', '### End IPv6 Rules ###\n')
+        #
+        # except (BaseException, Exception) as e:
+        #     msg('red', 'Got exception while parsing Pyre line!')
+        #     msg('red', 'Exception:', type(e), str(e))
+        #     return
+
+    def do_py(self, *args):
         """Execute raw python code for debugging purposes"""
-        print(eval(arg))
+        print(eval(' '.join(args)))
 
     def precmd(self, line):
-        readline.set_auto_history(False)
-        if line == 'EOF':
-            self.should_exit = True
-            return ''
-        if not empty(line):
-            # self.history += [line]
-            self.hist_len += 1
-            readline.add_history(line.strip())
-            print('Current history len:', readline.get_current_history_length())
-        return super().precmd(line)
+        return
 
-    def postcmd(self, stop, line):
+    def postcmd(self, line):
         readline.set_auto_history(False)
-        return stop or self.should_exit
+        return self.should_exit
 
-    def save_history(self):
-        readline.set_history_length(1000)
-        # readline.write_history_file(self.hist_file)
-        readline.append_history_file(self.hist_len, self.hist_file_name)
-        msg('green', f'Saved REPL history to {self.hist_file}')
+    def cmdloop(self):
+        while not self.should_exit:
+            data = self.session.prompt(
+                self.prompt, lexer=PygmentsLexer(PyreLexer), style=self.style, completer=self.completer
+            )
+            self.precmd(data)
+            self.default(data)
+            self.postcmd(data)
+
+    extra_cmds = {
+        '\\?': do_help,
+        '\\print': do_show,
+        '\\show': do_show,
+    }
 
 
 def get_color(name): return getattr(Fore, name.upper(), None)
@@ -171,13 +247,15 @@ def _msg(*args):
     return out
 
 
-def msg(*args, eol="\n"):
-    print(_msg(*args), end=eol)
+def msg(*args, eol="\n", **kwargs):
+    # print(_msg(*args), end=eol)
+    if len(args) == 0: return print_formatted_text()
+    if args[0].lower() in ['red', 'blue', 'green', 'yellow']:
+        return print_formatted_text(ANSI(_msg(*args)))
+    print_formatted_text()
 
 
-readline.set_auto_history(False)
 pyre_repl = PyreRepl()
-pyre_repl.prompt = " Pyre >> "
 
 
 def repl_main(*args, **kwargs):
@@ -189,8 +267,11 @@ def repl_main(*args, **kwargs):
         'Welcome to the PyreWall REPL - a playground for Pyre syntax. Simply type Pyre language lines such',
         'as "allow port 80,443 from 1.2.3.4", and the resulting IPTables rules will be outputted.'
     )
+    msg('yellow', 'For help, type \\? or "help"\n')
 
     try:
-        pyre_repl.cmdloop(intro='For help, type \\? or "help"\n')
+        pyre_repl.cmdloop()
+    except EOFError:
+        return
     except (BaseException, Exception, AttributeError):
         log.exception('Exception from cmdloop')

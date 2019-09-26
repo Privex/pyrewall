@@ -1,5 +1,6 @@
 privex-helpers>=1.2.0
 python-dotenv
+prompt_toolkit
 
 # Unit testing
 coverage

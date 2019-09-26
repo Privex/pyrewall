@@ -3,6 +3,7 @@ from typing import List, Tuple, Dict
 from privex.pyrewall.RuleParser import RuleParser
 from privex.pyrewall.core import find_file
 from privex.pyrewall import conf
+from privex.pyrewall.exceptions import UnknownKeyword
 from privex.pyrewall.types import IPVersionList
 
 log = logging.getLogger(__name__)
@@ -52,7 +53,7 @@ class PyreParser:
     """Contains ``List[str]``'s of the final generated iptables rules per IP version e.g. ``self.output.v4`` """
     committed: bool
     rp: RuleParser
-
+    strict: bool = False
     DEFAULT_CHAINS: Dict[str, dict] = conf.DEFAULT_CHAINS
     """Alias for :py:attr:`privex.pyrewall.conf.DEFAULT_CHAINS` """
 
@@ -70,6 +71,7 @@ class PyreParser:
         self.cache = IPVersionList(v4=[], v6=[])
         self.output = IPVersionList(v4=[], v6=[])
         self.committed = False
+        if 'strict' in rp_args: self.strict = rp_args['strict']
         self.rp = RuleParser(**rp_args)
 
     def parse_lines(self, lines: List[str]) -> Tuple[List[str], List[str]]:
@@ -125,6 +127,11 @@ class PyreParser:
             return [], []
         log.debug('Passing line starting with "%s" to RuleParser', sline[0])
         v4_rules, v6_rules = self.rp.parse(line)
+        if v4_rules is None or v6_rules is None:
+            if self.strict:
+                raise UnknownKeyword('(strict mode) Unknown keyword detected in pyre line...')
+            return None, None
+
         self.cache.v4 += v4_rules
         self.cache.v6 += v6_rules
 
@@ -189,6 +196,7 @@ class PyreParser:
     def set_table(self, *args):
         """Handler for ``@table [table_name]`` directive in ``.pyre`` files."""
         table = args[0]
+        if table.lower() == self.table.lower(): return
         log.debug('Setting table to "%s"', table)
         if not self.committed:
             self.commit()

@@ -1,7 +1,7 @@
 import re
 import logging
 from ipaddress import ip_network, IPv4Network, IPv6Network
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from privex.helpers import is_true, empty
 from privex.pyrewall.RuleBuilder import RuleBuilder
 from privex.pyrewall.exceptions import RuleSyntaxError, InvalidPort
@@ -120,7 +120,7 @@ class RuleParser:
         args.pop(0)
         return args
 
-    def parse(self, rule: str, reset_rule=True) -> Tuple[List[str], List[str]]:
+    def parse(self, rule: str, reset_rule=True) -> Tuple[Optional[List[str]], Optional[List[str]]]:
         rule = rule.strip()
         if rule[0] == '#': return [], []
 
@@ -136,6 +136,7 @@ class RuleParser:
                 rule = list(self.rule_handlers[rl](self, *rule))
                 continue
             log.warning('WARNING: No known handler for keyword "%s". Ignoring.', rl)
+            return None, None
 
         if not self.has_v4 and not self.has_v6:
             res = list(self.rule.build())
@@ -244,7 +245,7 @@ class RuleParser:
         'from': handle_from,
         'to': handle_to,
         'if-in': handle_if_in,
-        'if-out': handle_if_in,
+        'if-out': handle_if_out,
         'state': handle_state,
         'all': handle_all,
         'chain': handle_chain,

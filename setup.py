@@ -54,7 +54,7 @@ setup(
 
     license='MIT',
     install_requires=[
-        'privex-helpers>=1.2.0', 'python-dotenv'
+        'privex-helpers>=1.2.0', 'python-dotenv', 'prompt_toolkit'
     ],
     packages=find_packages(),
     scripts=['bin/pyre'],

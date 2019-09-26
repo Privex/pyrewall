@@ -66,3 +66,60 @@ def valid_port(port: Union[str, int]) -> int:
     except Exception:
         raise InvalidPort(f'Port number "{port}" is not a valid port number')
 
+
+def columnize(items, displaywidth=80):
+    """Display a items of strings as a compact set of columns.
+
+    Each column is only as wide as necessary.
+    Columns are separated by two spaces (one was not legible enough).
+    """
+    if not items:
+        print("<empty>\n")
+        return
+
+    nonstrings = [i for i in range(len(items))
+                  if not isinstance(items[i], str)]
+    if nonstrings:
+        raise TypeError("items[i] not a string for i in %s" % ", ".join(map(str, nonstrings)))
+    size = len(items)
+    if size == 1:
+        print('%s\n' % str(items[0]))
+        return
+    # Try every row count from 1 upwards
+    for nrows in range(1, len(items)):
+        ncols = (size + nrows - 1) // nrows
+        colwidths = []
+        totwidth = -2
+        for col in range(ncols):
+            colwidth = 0
+            for row in range(nrows):
+                i = row + nrows * col
+                if i >= size:
+                    break
+                x = items[i]
+                colwidth = max(colwidth, len(x))
+            colwidths.append(colwidth)
+            totwidth += colwidth + 2
+            if totwidth > displaywidth:
+                break
+        if totwidth <= displaywidth:
+            break
+    else:
+        nrows = len(items)
+        ncols = 1
+        colwidths = [0]
+    for row in range(nrows):
+        texts = []
+        for col in range(ncols):
+            i = row + nrows * col
+            if i >= size:
+                x = ""
+            else:
+                x = items[i]
+            texts.append(x)
+        while texts and not texts[-1]:
+            del texts[-1]
+        for col in range(len(texts)):
+            texts[col] = texts[col].ljust(colwidths[col])
+        print("%s\n" % str("  ".join(texts)))
+

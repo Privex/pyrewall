@@ -11,6 +11,8 @@ Privex Pyrewall
 
 An iptables firewall management system in Python.
 
+![Screenshot of REPL](https://cdn.privex.io/github/pyrewall/pyrewall_repl.png)
+
 WARNING: Still under construction
 
 ```
