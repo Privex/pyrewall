@@ -54,7 +54,7 @@ setup(
 
     license='MIT',
     install_requires=[
-        'privex-helpers>=1.2.0', 'python-dotenv', 'prompt_toolkit'
+        'privex-helpers>=1.2.0', 'python-dotenv', 'prompt_toolkit>=2.0.0'
     ],
     packages=find_packages(),
     scripts=['bin/pyre', 'bin/pyre-parse', 'bin/pyre-parse4', 'bin/pyre-parse6'],
