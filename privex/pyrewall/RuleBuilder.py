@@ -1,5 +1,5 @@
 from ipaddress import IPv4Network, IPv6Network
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Optional, Tuple
 from privex.helpers import empty
 from privex.pyrewall.types import IPT_TYPE, IPT_ACTION
 import logging
@@ -26,6 +26,8 @@ class RuleBuilder:
 
 
     """
+    ICMP_ALIASES = ['icmp', 'icmp4', 'icmp6', 'icmpv4', 'icmpv6', 'ipv6-icmp']
+
     default_action: IPT_ACTION = IPT_ACTION.ALLOW
     action: IPT_ACTION
     custom_action: str
@@ -43,18 +45,25 @@ class RuleBuilder:
     from_iface: List[str]
     to_iface: List[str]
 
+    icmp_types: Dict[str, List[int]]
+
+    rule_comment: Dict[str, Optional[str]]
+
     def __init__(self, rule_type: str = IPT_TYPE.INPUT.value, **kwargs):
         self.rule_type = str(rule_type)
         self.action, self.protocol, self.from_cidr, self.to_cidr = None, None, dict(v4=[], v6=[]), dict(v4=[], v6=[])
         self.from_iface, self.to_iface = [], []
         self.ports, self.sports, self.extra_protocols, self.match_rules, self.extra_types = [], [], [], [], []
+        self.icmp_types = dict(v4=[], v6=[])
+
+        self.rule_comment = dict(v4=None, v6=None)
 
         for k, v in kwargs.items():
             if hasattr(self, k):
                 setattr(self, k, v)
 
     def _build(self, protocol=None, from_cidr=None, to_cidr=None, from_iface=None, to_iface=None,
-               ipver='v4', rule_type: str = None):
+               ipver='v4', rule_type: str = None, **kwargs):
 
         rule = ''
         action = self.default_action if self.action is None else self.action
@@ -69,13 +78,23 @@ class RuleBuilder:
         from_iface = self.from_iface[0] if empty(from_iface) and len(self.from_iface) > 0 else from_iface
         to_iface = self.to_iface[0] if empty(to_iface) and len(self.to_iface) > 0 else to_iface
 
-        if not empty(protocol): rule += f' -p {protocol}'
+        if not empty(protocol): 
+            if protocol in self.ICMP_ALIASES:
+                protocol = 'icmp' if ipver == 'v4' else 'ipv6-icmp'
+
+            rule += f' -p {protocol}'
+
+        icmp_types: Optional[int] = self.icmp_types[ipver]
+        icmp_type: Optional[int] = kwargs.get('icmp_type', None if empty(icmp_types,itr=True) else icmp_types[0])
+        if protocol in self.ICMP_ALIASES and not empty(icmp_type):
+            rule += f' --icmp-type {icmp_type}' if ipver == 'v4' else f' --icmpv6-type {icmp_type}'
 
         rule += self.build_ports()
         rule += self.build_sports()
 
         for m in self.match_rules:
             rule += f' {m}'
+
 
         if not empty(from_cidr):  rule += f' -s {str(from_cidr)}'
         if not empty(to_cidr):    rule += f' -d {str(to_cidr)}'
@@ -86,7 +105,18 @@ class RuleBuilder:
         return rule
 
     def build(self, ipver='v4'):
+        if self.protocol in ['icmpv4', 'icmp4'] and ipver != 'v4':
+            return []
+        if self.protocol in ['icmpv6', 'icmp6', 'ipv6-icmp'] and ipver != 'v6':
+            return []
+        if self.protocol in ['comment', 'rem', 'rem4', 'rem6']:
+            if self.rule_comment.get(ipver) is not None:
+                return [f"# {self.rule_comment.get(ipver)}"]
+            return []
+        
         rules = [self._build(ipver=ipver)]
+        if self.rule_comment.get(ipver) is not None:
+            rules = [f"# {self.rule_comment.get(ipver)}"] + rules
         extra_rule_args = []
 
         def add_arg(pos, **data):
@@ -106,6 +136,10 @@ class RuleBuilder:
         if len(self.from_iface) > 1:
             for i, p in enumerate(self.from_iface[1:]):
                 add_arg(i, from_iface=p)
+        
+        if len(self.icmp_types[ipver]) > 1:
+            for i, p in enumerate(self.icmp_types[ipver][1:]):
+                add_arg(i, icmp_type=p)
 
         if len(self.to_iface) > 1:
             for i, p in enumerate(self.to_iface[1:]):
@@ -144,6 +178,10 @@ class RuleBuilder:
     def add_to_iface(self, *args): self.to_iface += args
 
     def add_rule_type(self, *args): self.extra_types += args
+
+    def add_icmp_types(self, *args, ipver='v4'): self.icmp_types[ipver] += args
+
+    def set_comment(self, *args, ipver='v4'): self.rule_comment[ipver] = ' '.join(args)
 
     def _parse_ports(self, ports, direction='d'):
         if not empty(ports, itr=True):

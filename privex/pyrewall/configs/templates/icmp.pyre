@@ -1,0 +1,9 @@
+# For ICMPv4 there's not many dangerous packet types unlike IPv6's ICMP packets related to 
+# neighbour discovery, auto-configuration etc.
+# So we just need a simple 'allow'
+rem4 Allow all incoming ICMPv4 traffic such as ping and traceroute packets
+allow icmp4
+
+# As for IPv6, there's a wide range of ICMPv6 types that we need allow either globally
+# (from anywhere), and others which should only ever be accepted from LAN IP's.
+@import templates/icmp6.pyre

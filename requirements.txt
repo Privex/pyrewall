@@ -1,6 +1,8 @@
-privex-helpers>=1.2.0
+privex-helpers>=2.10.0
 python-dotenv
 prompt_toolkit
+colorama
+pygments
 
 # Unit testing
 coverage

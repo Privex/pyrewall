@@ -54,14 +54,17 @@ setup(
 
     license='MIT',
     install_requires=[
-        'privex-helpers>=1.2.0', 'python-dotenv', 'prompt_toolkit>=2.0.0'
+        'privex-helpers>=2.10.0', 'python-dotenv', 'prompt_toolkit>=2.0.0',
+        'pygments', 'colorama'
     ],
     packages=find_packages(),
     scripts=['bin/pyre', 'bin/pyre-parse', 'bin/pyre-parse4', 'bin/pyre-parse6'],
+    include_package_data=True,
     classifiers=[
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
         "License :: OSI Approved :: MIT License",
         "Operating System :: POSIX :: Linux",
     ],

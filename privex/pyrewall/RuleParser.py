@@ -1,7 +1,8 @@
 import re
 import logging
+from decimal import Decimal
 from ipaddress import ip_network, IPv4Network, IPv6Network
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Union, Any
 from privex.helpers import is_true, empty
 from privex.pyrewall.RuleBuilder import RuleBuilder
 from privex.pyrewall.exceptions import RuleSyntaxError, InvalidPort
@@ -10,6 +11,24 @@ from privex.pyrewall.types import IPT_TYPE, IPT_ACTION
 from privex.pyrewall import conf
 
 log = logging.getLogger(__name__)
+
+r_alpha = re.compile(r'[a-zA-Z]+')
+r_alpha_dash_under = re.compile(r'[a-zA-Z_-]+')
+r_numeric = re.compile(r'^(-?[0-9]+(.[0-9]+)?)$')
+
+def is_number(data: Union[str, int, float, Decimal]):
+    if isinstance(data, (str, int, float, Decimal)):
+        return True
+    if not isinstance(data, str):
+        return False
+    
+    is_numeric = r_numeric.findall(data)
+    return len(is_numeric) > 0
+    # return len(r_alpha_dash_under.findall(data)) 
+    # has_letters = r_alpha_dash_under.findall(data)
+    
+    
+    
 
 
 class RuleParser:
@@ -36,12 +55,14 @@ class RuleParser:
     rgx_ports = re.compile(r'([0-9]+,?)+')
     # protocol: str
     rule: RuleBuilder
+    rule_segment: int
 
     def __init__(self, rule_type: str = IPT_TYPE.INPUT.value, table='filter', strict=False):
         self.table = table
         self.rule_type = str(rule_type)
         self.default_action = IPT_ACTION.ALLOW
         self.rule = None
+        self.rule_segment = 0
         self.chains = dict(conf.DEFAULT_CHAINS[self.table])
         self.strict = is_true(strict)
         self.has_v4, self.has_v6 = False, False
@@ -54,6 +75,43 @@ class RuleParser:
         self.rule = RuleBuilder(rule_type=self.rule_type)
         self.has_v4, self.has_v6 = False, False
         return self.rule
+    
+    @staticmethod
+    def flatten_range(item: str) -> List[Union[int, str]]:
+        """
+
+            >>> RuleParser.flatten_range('10-20')
+            [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+            >>> RuleParser.flatten_range('1:5')
+            [1, 2, 3, 4, 5]
+            >>> RuleParser.flatten_range('hello-world')
+            ['hello-world']
+        
+        """
+        item = item.strip()
+        
+        # If the string contains letters (a to z / A to Z), then it's probably not a numeric range.
+        # Simply return the individual item within a list.
+        if r_alpha.match(item):
+            return [item]
+        
+        multi = ':' in item or '-' in item
+        flat = []
+        if multi:
+            splitchar = ':' if ':' in item else '-'
+            item_start, item_end = item.split(splitchar, maxsplit=2)
+            # If after splitting the item, one or both halves isn't a number, then assume it's not a range
+            # and just return the original item.
+            if not is_number(item_start) or not is_number(item_end):
+                return [item]
+            item_start, item_end = int(item_start), int(item_end)
+
+            for xt in range(item_start, item_end + 1):
+                flat += [xt] 
+        else:
+            flat = [item]
+        return flat
+        
 
     def parse_ports(self, *args, protocol=None, **kwargs):
         protocol = self.rule.protocol if protocol is None else protocol
@@ -125,9 +183,10 @@ class RuleParser:
         if rule[0] == '#': return [], []
 
         rule = list(rule.split())
-
+        self.rule_segment = -1
         while len(rule) > 0:
             rl = rule.pop(0)
+            self.rule_segment += 1
             if rl.strip()[0] == '#':
                 log.debug('Final rule word "%s" appears to be a comment. Breaking while loop.', rl)
                 break
@@ -234,6 +293,95 @@ class RuleParser:
             self.rule.add_rule_type(*chains[1:])
         return args
 
+    def _get_icmp_types(self, *args) -> Tuple[List[Union[str, int]], List[Any]]:
+        args = list(args)
+        icmp_types = []
+        if len(args) > 1 and args[0] in ['type', 'types']:
+            args.pop(0)
+            _icmp_types = args.pop(0).split(',')
+            xtypes = [self.flatten_range(t) for t in _icmp_types]
+            for t in xtypes:
+                icmp_types += t
+        
+        return icmp_types, args
+            
+
+    def handle_icmp(self, *args):
+        args = list(args)
+        self.rule.protocol = 'icmp'
+        self.has_v4, self.has_v6 = True, True
+
+        icmp_types, args = self._get_icmp_types(*args)
+        if len(icmp_types) > 0:
+            self.rule.protocol = 'icmpv4'
+            self.has_v6 = False
+
+            self.rule.add_icmp_types(*icmp_types, ipver='v4')
+            # self.has_v4, self.has_v6 = True, False
+        
+        return args
+
+
+
+        # if len(args) > 1:
+        #     if args[0] == 'type':
+        #         args.pop(0)
+        #         icmp_types = []
+        #         _icmp_types = args.pop(0).split(',')
+
+        #         icmp_types = [self.flatten_range(t) for t in _icmp_types]
+        #         # if '-' in t:
+        #         #     t_start, t_end = t.split('-')
+        #         #     t_start, t_end = int(t_start), int(t_end)
+        #         #     for xt in range(t_start, t_end + 1):
+        #         #         icmp_types += [xt]
+        #         # else:
+        #         #     icmp_types += [t]
+                
+        #         self.rule.protocol = 'icmp'
+        #         self.rule.add_icmp_types(*icmp_types)
+        #         self.has_v4, self.has_v6 = True, False
+
+        
+    def handle_icmp4(self, *args):
+        args = list(args)
+        self.rule.protocol = 'icmpv4'
+        self.has_v4, self.has_v6 = True, False
+
+        icmp_types, args = self._get_icmp_types(*args)
+        if len(icmp_types) > 0:
+            self.rule.add_icmp_types(*icmp_types, ipver='v4')
+        
+        return args
+
+    def handle_icmp6(self, *args):
+        args = list(args)
+        self.rule.protocol = 'icmpv6'
+        self.has_v4, self.has_v6 = False, True
+
+        icmp_types, args = self._get_icmp_types(*args)
+        if len(icmp_types) > 0:
+            self.rule.add_icmp_types(*icmp_types, ipver='v6')
+        
+        return args
+    
+    def _handle_rem(self, *args, ipver='both'):
+        if self.rule_segment == 0:
+            self.rule.protocol = 'rem'
+        if ipver in ['v4', 'both']: 
+            self.has_v4 = True
+            self.rule.set_comment(*args, ipver='v4')
+        if ipver in ['v6', 'both']:
+            self.has_v6 = True
+            self.rule.set_comment(*args, ipver='v6')
+        return []
+    
+    def handle_rem(self, *args): return self._handle_rem(*args)
+
+    def handle_rem4(self, *args): return self._handle_rem(*args, ipver='v4')
+
+    def handle_rem6(self, *args): return self._handle_rem(*args, ipver='v6')
+
     rule_handlers = {
         'port': handle_port,
         'sport': handle_sport,
@@ -249,4 +397,13 @@ class RuleParser:
         'state': handle_state,
         'all': handle_all,
         'chain': handle_chain,
+
+        'icmp4': handle_icmp4, 'icmpv4': handle_icmp4,
+        'icmp6': handle_icmp6, 'icmpv6': handle_icmp6,
+        'icmp': handle_icmp,
+
+        'rem': handle_rem, 'remark': handle_rem,
+        'rem4': handle_rem4, 'remv4': handle_rem4, 'remark4': handle_rem4, 'remarkv4': handle_rem4,
+        'rem6': handle_rem6, 'remv6': handle_rem6, 'remark6': handle_rem6, 'remarkv6': handle_rem6,
+
     }

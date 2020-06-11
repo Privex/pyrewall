@@ -5,6 +5,9 @@ from privex.helpers import env_csv, env_bool
 import dotenv
 
 
+PKG_DIR = dirname(abspath(__file__))
+"""Package installation folder (e.g. site-packages/privex/pyrewall) containing this file"""
+
 BASE_DIR = dirname(dirname(dirname(abspath(__file__))))
 """Base folder of the project, i.e. where setup.py and LICENSE are located"""
 
@@ -12,7 +15,8 @@ BASE_DIR = dirname(dirname(dirname(abspath(__file__))))
 CONF_DIRS = [
     '/etc/pyrewall',
     '/usr/local/etc/pyrewall',
-    join(BASE_DIR, 'configs')
+    join(BASE_DIR, 'configs'),
+    join(PKG_DIR, 'configs'),
 ]
 """
 CONF_DIRS is used when searching for config files to load during either:
@@ -78,3 +82,4 @@ DEFAULT_CHAINS = {
         'POSTROUTING': ['ACCEPT', '[0:0]'],
     }
 }
+

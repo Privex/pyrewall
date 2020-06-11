@@ -66,8 +66,11 @@ class PyreLexer(RegexLexer):
         root=[
             (r'^(@import)(.*)$', bygroups(Name.Decorator, Name.Namespace)),
             (r'#.*$', Comment),
+            (r'^(rem|remark)v?(4|6)?( .*)$', bygroups(Name.Decorator, Name.Decorator, Number.Oct)),
             (ipv4_address, Number.Integer),
             (ipv6_address, Number.Integer),
+            (r'(types? )([a-zA-Z0-9_,-]+)', bygroups(Name.Decorator, Number.Float)),
+            # (r'type', Operator),
             include('builtins'),
             include('keywords'),
         ]

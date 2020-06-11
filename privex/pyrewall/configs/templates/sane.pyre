@@ -1,0 +1,28 @@
+################################################################################################
+# "Sane Default Config" Pyrewall Template.
+#
+# Included by default with Privex Pyrewall, for users to include into their Pyrewall
+# pyre files if they desire.
+#
+# (C) 2020 Privex Inc. - https://www.privex.io/
+#
+# This template is designed to help avoid the copy-pasting required for a "sane" iptables
+# firewall configuration, including:
+#
+#  - Allowing related and established input/forward connections
+#  - Allowing all input/forward for the loopback interface
+#  - Allowing incoming ICMPv4 
+#  - Allowing only appropriate ICMPv6 types from the internet, with certain types 
+#    restricted to fe80::/10 (IPv6 LAN)
+#
+################################################################################################
+
+rem Allow established and related connections in. This is important to allow remote servers to communicate
+rem back to this system when you connect to them (e.g. HTTP downloads)
+allow chain input,forward state related,established
+
+rem Allow all traffic occurring within 'lo' - the loopback / localhost network adapter
+allow chain input,forward if-in lo
+
+@import templates/icmp.pyre
+

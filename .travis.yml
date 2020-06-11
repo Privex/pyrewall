@@ -1,11 +1,10 @@
 dist: bionic
 language: python
-env:
-  - CODECOV_TOKEN="ec8257b4-719a-4b95-bba4-6110d18497c4"
+
 python:
   - "3.6"
   - "3.7"
-  - "3.7-dev"
+  - "3.8"
   - "3.8-dev"
   - "nightly"
 install:

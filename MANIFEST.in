@@ -1,0 +1,9 @@
+include privex/pyrewall/configs/templates/icmp.pyre
+include privex/pyrewall/configs/templates/icmp6.pyre
+include privex/pyrewall/configs/templates/sane.pyre
+
+include privex/pyrewall/configs/example/other.pyre
+include privex/pyrewall/configs/example/rules.v4
+include privex/pyrewall/configs/example/test.pyre
+include privex/pyrewall/configs/example/tpl_test.pyre
+

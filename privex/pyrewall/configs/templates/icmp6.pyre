@@ -1,0 +1,18 @@
+rem6 ==========================================================================================
+rem6 Permit needed ICMP packet types for IPv6 per RFC 4890.
+rem6 
+rem6 For IPv6 to function correctly, it's important to whitelist many ICMPv6 types, either
+rem6 globally from the internet or LAN - while some should only be accepted on the LAN.
+rem6 
+rem6 ==========================================================================================
+rem6
+rem6 Accept various ICMPv6 types which are okay to receive from the internet or LAN
+rem6
+allow icmp6 type 1-4,133-137,141,142,148,149
+
+rem6 Other ICMPv6 types which should only ever be accepted if they're coming from the LAN
+rem6 i.e. from hosts in the fe80::/10 range.
+allow icmp6 type 130-132,143,151-153 from fe80::/10
+
+rem6 Permit ICMP echo requests (ping)
+allow icmp6 type 128
