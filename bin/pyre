@@ -318,7 +318,7 @@ reload_sp.add_argument('files', help='Pyrewall file(s) to reload', nargs='+')
 reload_sp.set_defaults(func=ap_parse)
 
 parse_repl = sp.add_parser('repl', description=CMD_DESC['parse'])
-parse_repl.add_argument('files', help='Optionally read these Pyrewall file(s) into the REPL in order', nargs='+')
+parse_repl.add_argument('files', help='Optionally read these Pyrewall file(s) into the REPL in order', nargs='*')
 parse_repl.set_defaults(func=ap_repl)
 
 args = parser.parse_args()
