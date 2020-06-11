@@ -1,7 +1,12 @@
-from os.path import join
+import subprocess
+import sys
+from collections import namedtuple
+from os.path import join, expanduser
 from typing import List, Union
-from privex.pyrewall.exceptions import InvalidPort
+from privex.helpers import run_sync, byteify, empty, stringify
+from privex.pyrewall.exceptions import InvalidPort, IPTablesError, ReturnCodeError
 from privex.pyrewall import conf
+from subprocess import PIPE, STDOUT
 import logging
 import os.path
 
@@ -46,7 +51,7 @@ def find_file(filename: str, paths: List[str] = None, extensions=None) -> str:
             _fn[-1] = f'{_fn[-1]}{ext}'
 
         for p in paths:
-            fpath = join(p, *_fn)
+            fpath = join(expanduser(p), *_fn)
             try:
                 with open(fpath, 'r'):
                     return fpath
@@ -54,6 +59,20 @@ def find_file(filename: str, paths: List[str] = None, extensions=None) -> str:
                 continue
 
     raise FileNotFoundError(f'File "{filename}" could not be found in any of the given paths.')
+
+
+def search_files(*filenames, paths: List[str] = None, extensions=None) -> str:
+    orig_filenames = list(filenames)
+    filenames = list(filenames)
+    while len(filenames) > 0:
+        f = filenames.pop(0)
+        try:
+            fpath = find_file(filename=f, paths=paths, extensions=extensions)
+            return fpath
+        except FileNotFoundError:
+            continue
+    
+    raise FileNotFoundError(f'The filenames "{orig_filenames}" could not be found in any of the given paths.')
 
 
 def valid_port(port: Union[str, int]) -> int:
@@ -122,4 +141,90 @@ def columnize(items, displaywidth=80):
         for col in range(len(texts)):
             texts[col] = texts[col].ljust(colwidths[col])
         print("%s\n" % str("  ".join(texts)))
+
+
+def is_root() -> bool:
+    uid = os.geteuid()
+    if uid != 0:
+        log.debug("Current UID '%s' is not 0 (root).", uid)
+        return False
+    return True
+
+
+ProcResult = namedtuple('ProcResult', 'stdout stderr code', defaults=[0])
+
+
+def run_prog(prog: str, *args, write=None, **kwargs):
+    stdout, stderr, stdin = kwargs.pop('stdout', PIPE), kwargs.pop('stderr', STDOUT), kwargs.pop('stdin', PIPE)
+    args = [prog] + list(args)
+    handle = subprocess.Popen(args, stdout=stdout, stderr=stderr, stdin=stdin, **kwargs)
+    stdout, stderr = handle.communicate(input=byteify(write)) if write is not None else handle.communicate()
+    
+    return ProcResult(stdout=stdout, stderr=stderr, code=int(handle.returncode))
+
+
+def run_prog_ex(prog: str, *args, write=None, **kwargs):
+    cmd = [prog] + list(args)
+    res = run_prog(prog, *args, write=write, **kwargs)
+    
+    if res.code != 0:
+        log.error(f"ERROR! Non-zero return code ({res.code}) from command: {cmd}")
+        log.error("Command stdout: %s", res.stdout)
+        log.error("Command stderr: %s", res.stderr)
+        raise ReturnCodeError(f"Non-zero return code ({res.code}) from command: {cmd}")
+    
+    log.info(f"Got successful (zero) exit code from command: {cmd}")
+    log.info("Command stdout: %s", res.stdout)
+    log.info("Command stderr: %s", res.stderr)
+    return res
+
+
+def save_rules(ipver='v4') -> List[str]:
+    cmd = [] if is_root() else ['sudo', '-n']
+    cmd += ['iptables-save'] if ipver in ['v4', '4', 'ipv4', 4] else ['ip6tables-save']
+    
+    res = run_prog(*cmd)
+    
+    if res.code != 0:
+        log.error(f"ERROR! Non-zero return code ({res.code}) from command: {cmd}")
+        log.error("Command stdout: %s", res.stdout)
+        log.error("Command stderr: %s", res.stderr)
+        raise IPTablesError(f"Non-zero return code ({res.code}) from command: {cmd}")
+    
+    return stringify(res.stdout).split("\n")
+
+
+def load_rules(rules: Union[str, list], ipver='v4'):
+    cmd = [] if is_root() else ['sudo', '-n']
+    cmd += ['iptables-restore'] if ipver in ['v4', '4', 'ipv4', 4] else ['ip6tables-restore']
+    
+    if isinstance(rules, str):
+        cmd += [rules]
+        log.info("Restoring IPTables file %s using command %s", rules, cmd)
+        res = run_prog(*cmd)
+        
+        # print(f"Rules file {rules} appeared to restore successfully :)\n", file=sys.stderr)
+    else:
+        rule_list = list(rules)
+        rule_list = [r.strip("\n").strip() for r in rule_list if not empty(r.strip("\n").strip())]
+        l_rules = "\n".join(rule_list)
+        res = run_prog(*cmd, write=l_rules)
+
+    if res.code != 0:
+        log.error(f"ERROR! Non-zero return code ({res.code}) from command: {cmd}")
+        log.error("Command stdout: %s", res.stdout)
+        log.error("Command stderr: %s", res.stderr)
+        raise IPTablesError(f"Non-zero return code ({res.code}) from command: {cmd}")
+    
+    log.debug(f"Got successful (zero) exit code from command: {cmd}")
+    log.debug("Command stdout: %s", res.stdout)
+    log.debug("Command stderr: %s", res.stderr)
+    
+    return res
+
+    
+    
+    
+    
+    
 

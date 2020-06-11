@@ -13,3 +13,12 @@ class UnknownKeyword(RuleSyntaxError):
 
 class InvalidPort(PyreException):
     pass
+
+
+class IPTablesError(PyreException):
+    pass
+
+
+class ReturnCodeError(PyreException):
+    pass
+

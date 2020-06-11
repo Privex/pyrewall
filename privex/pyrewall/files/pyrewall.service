@@ -1,0 +1,55 @@
+#####
+#
+# Systemd Service file for `privex/pyrewall`
+#
+# To use this file, copy it into /etc/systemd/system/pyrewall.service
+#
+# If the main Pyrewall binary 'pyre' isn't installed at /usr/local/bin/pyre (type 'which pyre' and 'whereis pyre'),
+# then you'll want to adjust ExecStart to point to the correct binary location
+#
+# Once adjusted for your specific installation, run the following:
+#
+#    systemctl enable pyrewall.service
+#    systemctl start pyrewall.service
+#
+# Pyrewall will now have ran it's Pyre rule loader in the background as a systemd service,
+# and will automatically start on reboot, loading rules from the master file at /etc/pyrewall/rules.pyre
+# or from an alternative file/folder within it's search paths.
+#
+#####
+[Unit]
+Description=Privex Pyrewall - Persistent firewall rules on-boot
+After=network.target systemd-modules-load.service
+
+[Service]
+Type=oneshot
+User=root
+
+WorkingDirectory=/etc/pyrewall
+Restart=no
+
+ExecStart=/usr/local/bin/pyre load -n
+Environment=PYTHONUNBUFFERED=1
+StandardOutput=syslog
+
+[Install]
+WantedBy=multi-user.target
+Alias=pyre.service
+
+#####
+# +===================================================+
+# |                 © 2020 Privex Inc.                |
+# |               https://www.privex.io               |
+# +===================================================+
+# |                                                   |
+# |        Privex Pyrewall                            |
+# |        License: X11/MIT                           |
+# |                                                   |
+# |        https://github.com/Privex/pyrewall         |
+# |                                                   |
+# |        Core Developer(s):                         |
+# |                                                   |
+# |          (+)  Chris (@someguy123) [Privex]        |
+# |                                                   |
+# +===================================================+
+#####

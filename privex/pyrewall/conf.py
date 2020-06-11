@@ -11,10 +11,13 @@ PKG_DIR = dirname(abspath(__file__))
 BASE_DIR = dirname(dirname(dirname(abspath(__file__))))
 """Base folder of the project, i.e. where setup.py and LICENSE are located"""
 
+SERVICE_FILE = join(PKG_DIR, 'files', 'pyrewall.service')
+SERVICE_FILE_DEST = '/etc/systemd/system/pyrewall.service'
 
 CONF_DIRS = [
     '/etc/pyrewall',
     '/usr/local/etc/pyrewall',
+    '~/.pyrewall',
     join(BASE_DIR, 'configs'),
     join(PKG_DIR, 'configs'),
 ]
@@ -54,6 +57,18 @@ IPT6_SUFFIX = env('IPT6_SUFFIX', '.v6')
 
 
 SEARCH_EXTENSIONS = env_csv('SEARCH_EXTENSIONS', ['', FILE_SUFFIX, IPT4_SUFFIX, IPT6_SUFFIX])
+
+MAIN_PYRE = [
+    f'rules{FILE_SUFFIX}', f'main{FILE_SUFFIX}', f'master{FILE_SUFFIX}', f'base{FILE_SUFFIX}',
+    f'firewall{FILE_SUFFIX}'
+]
+"""
+A list of default 'master' Pyrewall rule files to try and locate and use, if one isn't specified on the command line.
+
+These will be searched for in order, within each :attr:`.SEARCH_DIRS`, until a matching file is found.
+"""
+
+MAIN_PYRE = env_csv('MAIN_PYRE', MAIN_PYRE)
 
 # Valid environment log levels (from least to most severe) are:
 # DEBUG, INFO, WARNING, ERROR, FATAL, CRITICAL

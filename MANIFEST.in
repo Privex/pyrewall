@@ -7,3 +7,4 @@ include privex/pyrewall/configs/example/rules.v4
 include privex/pyrewall/configs/example/test.pyre
 include privex/pyrewall/configs/example/tpl_test.pyre
 
+include privex/pyrewall/files/pyrewall.service
