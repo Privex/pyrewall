@@ -151,7 +151,7 @@ def is_root() -> bool:
     return True
 
 
-ProcResult = namedtuple('ProcResult', 'stdout stderr code', defaults=[0])
+ProcResult = namedtuple('ProcResult', 'stdout stderr code')
 
 
 def run_prog(prog: str, *args, write=None, **kwargs):
