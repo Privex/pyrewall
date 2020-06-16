@@ -111,7 +111,6 @@ class RuleParser:
         else:
             flat = [item]
         return flat
-        
 
     def parse_ports(self, *args, protocol=None, **kwargs):
         protocol = self.rule.protocol if protocol is None else protocol
@@ -304,7 +303,6 @@ class RuleParser:
                 icmp_types += t
         
         return icmp_types, args
-            
 
     def handle_icmp(self, *args):
         args = list(args)
@@ -320,28 +318,6 @@ class RuleParser:
             # self.has_v4, self.has_v6 = True, False
         
         return args
-
-
-
-        # if len(args) > 1:
-        #     if args[0] == 'type':
-        #         args.pop(0)
-        #         icmp_types = []
-        #         _icmp_types = args.pop(0).split(',')
-
-        #         icmp_types = [self.flatten_range(t) for t in _icmp_types]
-        #         # if '-' in t:
-        #         #     t_start, t_end = t.split('-')
-        #         #     t_start, t_end = int(t_start), int(t_end)
-        #         #     for xt in range(t_start, t_end + 1):
-        #         #         icmp_types += [xt]
-        #         # else:
-        #         #     icmp_types += [t]
-                
-        #         self.rule.protocol = 'icmp'
-        #         self.rule.add_icmp_types(*icmp_types)
-        #         self.has_v4, self.has_v6 = True, False
-
         
     def handle_icmp4(self, *args):
         args = list(args)
@@ -363,6 +339,50 @@ class RuleParser:
         if len(icmp_types) > 0:
             self.rule.add_icmp_types(*icmp_types, ipver='v6')
         
+        return args
+    
+    def handle_masquerade(self, *args):
+        self.rule.action = IPT_ACTION.MASQUERADE
+        self.rule.rule_type = IPT_TYPE.POSTROUTING.value
+        return list(args)
+
+    def handle_dnat(self, *args):
+        self.rule.action = IPT_ACTION.DNAT
+        self.rule.rule_type = IPT_TYPE.PREROUTING.value
+        return list(args)
+
+    def handle_snat(self, *args):
+        self.rule.action = IPT_ACTION.SNAT
+        self.rule.rule_type = IPT_TYPE.PREROUTING.value
+        return list(args)
+
+    def handle_redirect(self, *args):
+        self.rule.action = IPT_ACTION.REDIRECT
+        self.rule.rule_type = IPT_TYPE.PREROUTING.value
+        return list(args)
+    
+    def handle_to_dest(self, *args):
+        args = list(args)
+        dest = args.pop(0)
+        self.rule.action_args.append(f"--to-destination {dest}")
+        return args
+
+    def handle_to_src(self, *args):
+        args = list(args)
+        src = args.pop(0)
+        self.rule.action_args.append(f"--to-source {src}")
+        return args
+
+    def handle_to_ports(self, *args):
+        args = list(args)
+        ports = args.pop(0)
+        self.rule.action_args.append(f"--to-ports {ports}")
+        return args
+
+    def handle_action_to(self, *args):
+        args = list(args)
+        dest = args.pop(0)
+        self.rule.action_args.append(f"--to {dest}")
         return args
     
     def _handle_rem(self, *args, ipver='both'):
@@ -397,6 +417,16 @@ class RuleParser:
         'state': handle_state,
         'all': handle_all,
         'chain': handle_chain,
+        
+        'masquerade': handle_masquerade,
+        'snat': handle_snat,
+        'dnat': handle_dnat,
+        'redirect': handle_redirect,
+        'to-dest': handle_to_dest, 'to-destination': handle_to_dest,
+        'to-src': handle_to_src, 'to-source': handle_to_src,
+        'to-port': handle_to_ports, 'to-ports': handle_to_ports,
+        '--to': handle_action_to, 'action-to': handle_action_to, 'nat-to': handle_action_to,
+        
 
         'icmp4': handle_icmp4, 'icmpv4': handle_icmp4,
         'icmp6': handle_icmp6, 'icmpv6': handle_icmp6,

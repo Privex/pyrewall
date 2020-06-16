@@ -30,6 +30,7 @@ class RuleBuilder:
 
     default_action: IPT_ACTION = IPT_ACTION.ALLOW
     action: IPT_ACTION
+    action_args: List[str]
     custom_action: str
     rule_type: str
     extra_types: List[str]
@@ -54,6 +55,7 @@ class RuleBuilder:
         self.action, self.protocol, self.from_cidr, self.to_cidr = None, None, dict(v4=[], v6=[]), dict(v4=[], v6=[])
         self.from_iface, self.to_iface = [], []
         self.ports, self.sports, self.extra_protocols, self.match_rules, self.extra_types = [], [], [], [], []
+        self.action_args = []
         self.icmp_types = dict(v4=[], v6=[])
 
         self.rule_comment = dict(v4=None, v6=None)
@@ -95,13 +97,14 @@ class RuleBuilder:
         for m in self.match_rules:
             rule += f' {m}'
 
-
         if not empty(from_cidr):  rule += f' -s {str(from_cidr)}'
         if not empty(to_cidr):    rule += f' -d {str(to_cidr)}'
         if not empty(from_iface): rule += f' -i {str(from_iface)}'
         if not empty(to_iface):   rule += f' -o {str(to_iface)}'
 
         rule += f' -j {self.custom_action}' if action is IPT_ACTION.CUSTOM else f' {action.value}'
+        if len(self.action_args) > 0:
+            rule += ' ' + (' '.join(self.action_args))
         return rule
 
     def build(self, ipver='v4'):

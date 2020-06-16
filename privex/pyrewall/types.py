@@ -7,6 +7,10 @@ class IPT_ACTION(Enum):
     ALLOW = '-j ACCEPT'
     REJECT = '-j REJECT'
     DROP = '-j DROP'
+    MASQUERADE = '-j MASQUERADE'
+    REDIRECT = '-j REDIRECT'
+    SNAT = '-j SNAT'
+    DNAT = '-j DNAT'
     CUSTOM = '#CUSTOM#'
 
 
