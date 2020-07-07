@@ -63,6 +63,32 @@ class TestRuleHandlers(unittest.TestCase):
 
         self.assertEqual(v6r[0], expected)
 
+    def test_raw_ipt(self):
+        """Test ``ipt`` Pyre rule parses into an equal IPv4 and IPv6 rule"""
+        expected = '-A FORWARD -p tcp --dport 420 --example testing -j ACCEPT'
+        v4r, v6r = self.rp.parse(f'ipt {expected}')
+        self.assertEqual(len(v4r), 1)
+        self.assertEqual(len(v6r), 1)
+        self.assertEqual(v4r[0], expected)
+        self.assertEqual(v6r[0], expected)
+    
+
+    def test_raw_ipt_v4(self):
+        """Test ``ipt4`` Pyre rule parses into a singular IPv4 rule"""
+        expected = '-A OUTPUT -p tcp -s 1.2.3.0/24 --dport 420 --example testing -j ACCEPT'
+        v4r, v6r = self.rp.parse(f'ipt4 {expected}')
+        self.assertEqual(len(v4r), 1)
+        self.assertEqual(len(v6r), 0)
+        self.assertEqual(v4r[0], expected)
+    
+    def test_raw_ipt_v6(self):
+        """Test ``ipt6`` Pyre rule parses into a singular IPv6 rule"""
+        expected = '-A FORWARD -p tcp -s 2a07:e00::/32 --example testing -j ACCEPT'
+        v4r, v6r = self.rp.parse(f'ipt6 {expected}')
+        self.assertEqual(len(v4r), 0)
+        self.assertEqual(len(v6r), 1)
+        self.assertEqual(v6r[0], expected)
+
 
 class TestRuleValidation(unittest.TestCase):
     def test_valid_port(self):

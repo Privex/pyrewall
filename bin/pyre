@@ -58,6 +58,10 @@ parser = ErrHelpParser(
 )
 
 
+class EmptyStream(Exception):
+    pass
+
+
 def parse_stdin(ipver='both'):
     lines = []
     for l in sys.stdin:
@@ -168,12 +172,20 @@ class RuleOutput:
         
         return bk_path
 
-    def load(self, file=None, confirm=True, timeout=15):
+    def load(self, file=None, confirm=True, timeout=15, check_stream=True):
         f = self.input_file if file is None else file
         
-        if f == '-' or (empty(f) and not sys.stdin.isatty()):
+        if f == '-':
             self.input_stream = sys.stdin
             ip4, ip6 = self.parse_stream(stream=self.input_stream)
+            if empty(ip4, True, True) and empty(ip6, True, True):
+                raise EmptyStream("Filename was '-', tried loading from stream, but no rules generated...")
+        elif check_stream and empty(f) and not sys.stdin.isatty():
+            self.input_stream = sys.stdin
+            ip4, ip6 = self.parse_stream(stream=self.input_stream)
+            if empty(ip4, True, True) and empty(ip6, True, True):
+                log.warning("Stream detected, but stream was empty... Re-calling load() with check_stream disabled.")
+                return self.load(file=file, confirm=confirm, timeout=timeout, check_stream=False)
         elif empty(f):
             try:
                 f = search_files(*conf.MAIN_PYRE)
@@ -357,7 +369,7 @@ def ap_parse(opt):
 def ap_reload(opt):
     f = opt.file
     k = RuleOutput(opt)
-    k.load(file=f, confirm=opt.confirm, timeout=int(opt.confirm_timeout))
+    k.load(file=f, confirm=opt.confirm, timeout=int(opt.confirm_timeout), check_stream=opt.check_stream)
 
 
 def ap_repl(opt):
@@ -429,9 +441,13 @@ reload_sp.add_argument(
     '-n', '--noninteractive', '--no-confirm', dest='confirm', action='store_false', default=True,
     help='Do not prompt to confirm whether or not to keep the newly loaded rules',
 )
+reload_sp.add_argument(
+    '-x', '--no-stream', dest='check_stream', action='store_false', default=True,
+    help='Do not scan for / attempt to load an input stream, such as a pipe or file redirection when filename is blank',
+)
 reload_sp.add_argument('file', help='Pyrewall file to (re-)load into IPTables', default=None, nargs='?')
 
-reload_sp.set_defaults(func=ap_reload, confirm=True)
+reload_sp.set_defaults(func=ap_reload, confirm=True, check_stream=True)
 
 parse_repl = sp.add_parser('repl', description=CMD_DESC['parse'])
 parse_repl.add_argument('files', help='Optionally read these Pyrewall file(s) into the REPL in order', nargs='*')

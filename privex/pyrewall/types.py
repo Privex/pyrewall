@@ -16,6 +16,7 @@ class IPT_TYPE(Enum):
     FORWARD = '-A FORWARD'
     POSTROUTING = '-A POSTROUTING'
     PREROUTING = '-A PREROUTING'
+    RAW_RULE = '#RAW_RULE#'
 
 
 T = TypeVar('T', str, list, dict, IPv4Network, IPv6Network)

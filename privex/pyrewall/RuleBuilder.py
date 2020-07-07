@@ -57,6 +57,8 @@ class RuleBuilder:
         self.icmp_types = dict(v4=[], v6=[])
 
         self.rule_comment = dict(v4=None, v6=None)
+        self.rule_raw = dict(v4=None, v6=None)
+        self.raw_only = False
 
         for k, v in kwargs.items():
             if hasattr(self, k):
@@ -64,7 +66,7 @@ class RuleBuilder:
 
     def _build(self, protocol=None, from_cidr=None, to_cidr=None, from_iface=None, to_iface=None,
                ipver='v4', rule_type: str = None, **kwargs):
-
+        
         rule = ''
         action = self.default_action if self.action is None else self.action
         rule += self.rule_type if empty(rule_type) else f'-A {rule_type}'
@@ -102,9 +104,10 @@ class RuleBuilder:
         if not empty(to_iface):   rule += f' -o {str(to_iface)}'
 
         rule += f' -j {self.custom_action}' if action is IPT_ACTION.CUSTOM else f' {action.value}'
+        if self.rule_raw.get(ipver) is not None: rule += f" {self.rule_raw[ipver]}"
         return rule
 
-    def build(self, ipver='v4'):
+    def build(self, ipver='v4') -> List[str]:
         if self.protocol in ['icmpv4', 'icmp4'] and ipver != 'v4':
             return []
         if self.protocol in ['icmpv6', 'icmp6', 'ipv6-icmp'] and ipver != 'v6':
@@ -113,6 +116,8 @@ class RuleBuilder:
             if self.rule_comment.get(ipver) is not None:
                 return [f"# {self.rule_comment.get(ipver)}"]
             return []
+        if self.raw_only or self.protocol in ['ipt', 'iptables', 'ipt4', 'ip4tables', 'ipt6', 'ipt6tables']:
+            return [self.rule_raw.get(ipver)] if self.rule_raw.get(ipver) is not None else []
         
         rules = [self._build(ipver=ipver)]
         if self.rule_comment.get(ipver) is not None:
@@ -196,4 +201,6 @@ class RuleBuilder:
 
     def build_sports(self):
         return self._parse_ports(ports=self.sports, direction='s')
+
+    def add_ipt_raw(self, *args, ipver='v4'): self.rule_raw[ipver] = " ".join(args)
 

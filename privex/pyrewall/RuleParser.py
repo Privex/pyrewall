@@ -66,6 +66,7 @@ class RuleParser:
         self.chains = dict(conf.DEFAULT_CHAINS[self.table])
         self.strict = is_true(strict)
         self.has_v4, self.has_v6 = False, False
+        
         self.reset_rule()
         # self.protocol = None
 
@@ -178,7 +179,7 @@ class RuleParser:
         args.pop(0)
         return args
 
-    def parse(self, rule: str, reset_rule=True) -> Tuple[Optional[List[str]], Optional[List[str]]]:
+    def parse(self, rule: str, reset_rule=True, initial_rule=False) -> Tuple[Optional[List[str]], Optional[List[str]]]:
         rule = rule.strip()
         if rule[0] == '#': return [], []
 
@@ -382,6 +383,30 @@ class RuleParser:
 
     def handle_rem6(self, *args): return self._handle_rem(*args, ipver='v6')
 
+    def handle_ipt_raw(self, *args):
+        if self.rule_segment <= 1: self.rule.protocol, self.rule.raw_only = 'ipt', True
+        self.rule.add_ipt_raw(*args, ipver='v4')
+        self.rule.add_ipt_raw(*args, ipver='v6')
+        # self.handle_ipt_raw4(*args)
+        # self.handle_ipt_raw6(*args)
+        return []
+    
+    def handle_ipt_raw4(self, *args):
+        if self.rule_segment <= 1: self.rule.protocol, self.rule.raw_only = 'ipt', True
+        self.has_v4 = True
+        self.rule.add_ipt_raw(*args, ipver='v4')
+        # self.rule_type = IPT_TYPE.RAW_RULE.value
+        # self.v4_rules += " ".join(list(args))
+        return []
+
+    def handle_ipt_raw6(self, *args):
+        if self.rule_segment <= 1: self.rule.protocol, self.rule.raw_only = 'ipt', True
+        self.has_v6 = True
+        self.rule.add_ipt_raw(*args, ipver='v6')
+        # self.rule_type = IPT_TYPE.RAW_RULE.value
+        # self.v6_rules += " ".join(list(args))
+        return []
+
     rule_handlers = {
         'port': handle_port,
         'sport': handle_sport,
@@ -406,4 +431,7 @@ class RuleParser:
         'rem4': handle_rem4, 'remv4': handle_rem4, 'remark4': handle_rem4, 'remarkv4': handle_rem4,
         'rem6': handle_rem6, 'remv6': handle_rem6, 'remark6': handle_rem6, 'remarkv6': handle_rem6,
 
+        'ipt': handle_ipt_raw, 'iptables': handle_ipt_raw, 'iptraw': handle_ipt_raw, 'ipt_raw': handle_ipt_raw,
+        'ipt4': handle_ipt_raw4, 'ip4tables': handle_ipt_raw4, 'iptraw4': handle_ipt_raw4, 'ipt_raw4': handle_ipt_raw4,
+        'ipt6': handle_ipt_raw6, 'ip6tables': handle_ipt_raw6, 'iptraw6': handle_ipt_raw6, 'ipt_raw6': handle_ipt_raw6
     }
