@@ -28,7 +28,7 @@ User=root
 WorkingDirectory=/etc/pyrewall
 Restart=no
 
-ExecStart=/usr/local/bin/pyre load -n
+ExecStart=/usr/local/bin/pyre load --no-stream -n
 Environment=PYTHONUNBUFFERED=1
 StandardOutput=syslog
 

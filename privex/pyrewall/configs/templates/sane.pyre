@@ -11,6 +11,7 @@
 #
 #  - Allowing related and established input/forward connections
 #  - Allowing all input/forward for the loopback interface
+#  - Drop "INVALID" state connections
 #  - Allowing incoming ICMPv4 
 #  - Allowing only appropriate ICMPv6 types from the internet, with certain types 
 #    restricted to fe80::/10 (IPv6 LAN)
@@ -23,6 +24,9 @@ allow chain input,forward state related,established
 
 rem Allow all traffic occurring within 'lo' - the loopback / localhost network adapter
 allow chain input,forward if-in lo
+
+rem Drop invalid packets, thus we no longer need to use -m state --state NEW
+drop state invalid
 
 @import templates/icmp.pyre
 
